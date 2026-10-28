@@ -32,7 +32,7 @@ describe('base routes', () => {
     expect(await screen.findByRole('heading', { name: 'A public thought' })).toBeInTheDocument()
     expect(screen.getByText('A shared question')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Send|Rename|Delete/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Send|Rename|Delete|Stop|Retry/ })).not.toBeInTheDocument()
     expect(document.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
     view.unmount()
     expect(document.querySelector('meta[name="robots"]')).not.toBeInTheDocument()
@@ -75,8 +75,8 @@ describe('base routes', () => {
 
   it('keeps a composed prompt when sending is not yet connected', async () => {
     const user = userEvent.setup()
-    open('/login')
-    await user.click(await screen.findByRole('button', { name: 'Explore the UI preview' }))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/get-session') ? Response.json({ user: { id: 'user', name: 'Alex', email: 'alex@example.test' } }) : Response.json({ data: [] })))
+    open('/chats')
     const send = await screen.findByRole('button', { name: 'Send message' })
     expect(send).toBeDisabled()
     await user.click(screen.getByRole('button', { name: /Find a fresh angle/ }))

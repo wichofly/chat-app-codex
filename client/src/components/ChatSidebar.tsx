@@ -1,5 +1,3 @@
-import { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router';
 import {
   ArrowUpRight,
   BookOpen,
@@ -10,12 +8,14 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { useState } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router';
 import { useApp } from '../app/providers';
-import { useResource } from '../lib/use-resource';
+import { usePreviewChatList } from '../features/chats/use-preview';
 import type { ChatSummary } from '../lib/types';
+import { useResource } from '../lib/use-resource';
 import { Brand } from './Brand';
 import { ChatActionsDialog } from './ChatActionsDialog';
-import { usePreviewChatList } from '../features/chats/use-preview';
 
 export function ChatSidebar({
   mobileOpen,
@@ -31,7 +31,10 @@ export function ChatSidebar({
     data: remoteChats,
     loading: remoteLoading,
     error: remoteError,
-  } = useResource(() => preview ? Promise.resolve(null) : service.listChats(), [service, revision]);
+  } = useResource(
+    () => (preview ? Promise.resolve(null) : service.listChats()),
+    [service, revision],
+  );
   const previewChats = usePreviewChatList();
   const chats = preview ? previewChats : remoteChats;
   const loading = !preview && remoteLoading;

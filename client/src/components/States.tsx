@@ -1,5 +1,6 @@
-import { ArrowLeft, RefreshCw, SearchX, AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, RefreshCw, SearchX } from 'lucide-react';
 import { Link } from 'react-router';
+import { useDocumentTitle } from '../lib/use-document-title';
 
 export function Loading({ label = 'Loading your space…' }: { label?: string }) {
   return (
@@ -29,9 +30,11 @@ export function ConversationSkeleton() {
 export function ErrorState({
   message,
   retry,
+  retryLabel = 'Try again',
 }: {
   message: string;
   retry?: () => void;
+  retryLabel?: string;
 }) {
   return (
     <div className="page-state">
@@ -43,7 +46,7 @@ export function ErrorState({
       {retry && (
         <button className="button button-secondary" onClick={retry}>
           <RefreshCw size={16} />
-          Try again
+          {retryLabel}
         </button>
       )}
     </div>
@@ -57,6 +60,9 @@ export function NotFound({
   shared?: boolean;
   nested?: boolean;
 }) {
+  useDocumentTitle(
+    shared ? 'Shared conversation unavailable' : 'Page not found',
+  );
   return (
     <div className={`page-state ${nested ? '' : 'full-page-state'}`}>
       <span className="state-icon">

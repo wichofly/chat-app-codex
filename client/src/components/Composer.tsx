@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import Placeholder from '@tiptap/extension-placeholder';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
 import {
   ArrowUp,
   Bold,
@@ -10,9 +9,10 @@ import {
   Link2,
   List,
   ListOrdered,
-  X,
   Square,
+  X,
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { RichDocument } from '../lib/types';
 import { paragraph } from '../lib/types';
 import { safeUrl } from './RichText';
@@ -36,8 +36,10 @@ export function Composer({
   const [url, setUrl] = useState('');
   const [linkError, setLinkError] = useState('');
   const [sendError, setSendError] = useState('');
+  const appliedPrompt = useRef<number | undefined>(undefined);
   const locked = disabled || generating || busy;
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
@@ -79,30 +81,41 @@ export function Composer({
   });
   const state = useEditorState({
     editor,
-    selector: ({ editor }) => ({
-      length: editor?.getText().trim().length ?? 0,
-      bold: editor?.isActive('bold') ?? false,
-      italic: editor?.isActive('italic') ?? false,
-      bullet: editor?.isActive('bulletList') ?? false,
-      ordered: editor?.isActive('orderedList') ?? false,
-      code: editor?.isActive('code') ?? false,
-      link: editor?.isActive('link') ?? false,
-    }),
+    selector: ({ editor }) =>
+      !editor?.schema
+        ? null
+        : {
+            length: editor.getText().trim().length,
+            bold: editor.isActive('bold'),
+            italic: editor.isActive('italic'),
+            bullet: editor.isActive('bulletList'),
+            ordered: editor.isActive('orderedList'),
+            code: editor.isActive('code'),
+            link: editor.isActive('link'),
+          },
   });
   useEffect(() => {
-    if (editor && prompt && !locked) {
+    if (
+      editor &&
+      !editor.isDestroyed &&
+      prompt &&
+      !locked &&
+      appliedPrompt.current !== prompt.key
+    ) {
+      appliedPrompt.current = prompt.key;
       editor.commands.setContent(paragraph(prompt.text));
       editor.commands.focus('end');
     }
   }, [editor, prompt, locked]);
   useEffect(() => {
-    editor?.setEditable(!locked);
+    if (editor && !editor.isDestroyed) editor.setEditable(!locked);
     if (locked) setLinkOpen(false);
   }, [editor, locked]);
   const sending = useRef(false);
   async function send() {
     if (
       !editor ||
+      editor.isDestroyed ||
       locked ||
       !editor.getText().trim() ||
       sending.current ||
@@ -114,9 +127,14 @@ export function Composer({
     setBusy(true);
     editor.setEditable(false);
     try {
-      if (await onSend(editor.getJSON()) && !editor.isDestroyed) editor.commands.clearContent();
+      if ((await onSend(editor.getJSON())) && !editor.isDestroyed)
+        editor.commands.clearContent();
     } catch (error) {
-      setSendError(error instanceof Error ? error.message : 'Could not send your message. Your draft is still here.');
+      setSendError(
+        error instanceof Error
+          ? error.message
+          : 'Could not send your message. Your draft is still here.',
+      );
     } finally {
       sending.current = false;
       setBusy(false);
@@ -160,7 +178,10 @@ export function Composer({
   ];
   return (
     <div className="composer-wrap">
-      <div className={`composer ${busy ? 'composer-busy' : ''}`}>
+      <div
+        className={`composer ${locked ? 'composer-busy' : ''}`}
+        aria-busy={generating}
+      >
         <EditorContent editor={editor} />
         {linkOpen && !locked && (
           <form
@@ -259,19 +280,33 @@ export function Composer({
             <span className="composer-shortcut">
               Shift + Enter for a new line
             </span>
-            {generating && onStop ? <button className="button button-secondary stop-button" onClick={onStop}><Square size={12} fill="currentColor" />Stop generation</button> : <button
-              className="send-button"
-              aria-label="Send message"
-              title="Send message (Enter)"
-              onClick={() => void send()}
-              disabled={!state?.length || state.length > 6000 || locked}
-            >
-              {busy ? <span className="spinner" /> : <ArrowUp size={19} />}
-            </button>}
+            {generating && onStop ? (
+              <button
+                className="button button-secondary stop-button"
+                onClick={onStop}
+              >
+                <Square size={12} fill="currentColor" />
+                Stop generation
+              </button>
+            ) : (
+              <button
+                className="send-button"
+                aria-label="Send message"
+                title="Send message (Enter)"
+                onClick={() => void send()}
+                disabled={!state?.length || state.length > 6000 || locked}
+              >
+                {busy ? <span className="spinner" /> : <ArrowUp size={19} />}
+              </button>
+            )}
           </div>
         </div>
       </div>
-      {sendError && <p className="inline-error" role="alert">{sendError}</p>}
+      {sendError && (
+        <p className="inline-error" role="alert">
+          {sendError}
+        </p>
+      )}
       {!!state && state.length > 6000 && (
         <p className="inline-error" role="alert">
           Please keep your message under 6,000 characters (

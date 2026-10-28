@@ -1,0 +1,102 @@
+/* Interactive preview controls share the existing workspace layout. */
+.workspace {
+  --preview-banner-height: 44px;
+  min-height: 100dvh;
+}
+
+.preview-banner {
+  min-height: var(--preview-banner-height);
+  height: var(--preview-banner-height);
+  gap: 12px;
+  padding: 6px 18px;
+}
+
+.preview-banner>span {
+  min-width: 0;
+}
+
+.preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.preview-controls label {
+  font-size: 10px;
+}
+
+.preview-controls select {
+  color: #5a664c;
+  background: #fffef8;
+  border: 1px solid #d9dfce;
+  border-radius: 5px;
+  padding: 5px 7px;
+  font: inherit;
+  font-size: 11px;
+  max-width: 160px;
+}
+
+.chat-page,
+.preview-banner+.mobile-menu+.workspace-main .chat-page {
+  min-height: 0;
+  flex: 1;
+}
+
+.route-failure {
+  min-height: 100dvh;
+  display: flex;
+}
+
+.composer-bottom {
+  flex-wrap: wrap;
+}
+
+.composer-send {
+  margin-left: auto;
+}
+
+.stop-button {
+  min-height: 33px;
+  padding: 7px 10px;
+  font-size: 11px;
+}
+
+.retry-button {
+  min-height: 30px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.message-failure .message-failed {
+  align-items: flex-start;
+}
+
+.composer[aria-busy='true'] .composer-shortcut {
+  visibility: hidden;
+}
+
+@media (max-width: 1100px) {
+  .preview-banner-detail {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .preview-banner+.mobile-menu {
+    top: calc(var(--preview-banner-height) + 22px);
+  }
+
+  .preview-banner {
+    padding-inline: 15px;
+  }
+
+  .preview-controls label {
+    display: none;
+  }
+
+  .stop-button {
+    font-size: 10px;
+  }
+}

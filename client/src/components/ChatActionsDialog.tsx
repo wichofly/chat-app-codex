@@ -1,5 +1,5 @@
-import { useState, type ChangeEvent } from 'react';
 import { Trash2 } from 'lucide-react';
+import { useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useApp } from '../app/providers';
 import type { ChatSummary } from '../lib/types';

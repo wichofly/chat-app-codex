@@ -1,3 +1,4 @@
+import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import {
   createContext,
   useCallback,
@@ -7,11 +8,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { createPreviewService } from '../features/chats/preview';
+import type {
+  PreviewChatService,
+  PreviewOutcome,
+} from '../features/chats/preview-types';
 import { api, auth } from '../lib/api';
 import type { ChatService, User } from '../lib/types';
-import { createPreviewService } from '../features/chats/preview';
-import type { PreviewChatService, PreviewOutcome } from '../features/chats/preview-types';
 
 type AppState = {
   user: User | null;
@@ -36,8 +39,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sessionError, setSessionError] = useState(false);
-  const [previewService, setPreviewService] = useState<PreviewChatService | null>(null);
-  const [previewOutcome, setPreviewOutcome] = useState<PreviewOutcome>('normal');
+  const [previewService, setPreviewService] =
+    useState<PreviewChatService | null>(null);
+  const [previewOutcome, setPreviewOutcome] =
+    useState<PreviewOutcome>('normal');
   const preview = previewService !== null;
   const service = previewService ?? api;
   const [revision, setRevision] = useState(0);

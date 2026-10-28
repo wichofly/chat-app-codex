@@ -38,10 +38,24 @@ npm test        # UI, access-state, safe-rendering and snapshot tests
 - TipTap JSON composer with bold, italic, lists, safe links and inline code. Enter submits; Shift+Enter inserts a newline. Empty and over-limit messages cannot be sent.
 - Safe read-only JSON rendering, distinct user/assistant messages, loading skeletons, error and empty states, and notifications.
 - Preview chat create/rename/delete, delete confirmation, snapshot creation, token rotation, copying and revocation.
+- Interactive, explicitly labeled sample responses with progressive text, Stop, and safe Retry. Each chat tracks its own generation, which continues when you navigate to another page.
+- Complete loading, empty, failure and recovery states; consistent page titles; a route error fallback with a reload action.
 - Shared view adds `noindex, nofollow` metadata while mounted. Invalid or revoked tokens show the same unavailable page.
 - API adapters for the spec’s session, auth, chat CRUD and sharing endpoints, using credentialed requests.
 
-**Sending and streaming are intentionally not implemented.** Sending a draft shows an explanatory state and retains the draft. There are no fabricated AI responses. Preview share links work only within the active preview tab; they are not public, durable links. Sign out/leave preview before trying real API authentication.
+**Real AI sending and streaming are not implemented.** Outside preview, sending shows an explanatory state and retains the draft. The preview uses fixed, clearly labeled sample responses without calling a model. Preview share links work only within the active preview tab; they are not public, durable links. Sign out/leave preview before trying real API authentication.
+
+## Try the interactive preview
+
+1. Choose **Explore the UI preview** on the sign-in page.
+2. Pick a suggested prompt or write a formatted message, then send. Sending from the welcome page creates a new chat.
+3. Use **Response** in the preview banner to select **Normal**, **Fail before response**, or **Fail during response**. The choice applies when a send or retry starts; changing it does not alter a response already in progress.
+4. The fixed sample begins after 400 ms and reveals word groups every 250 ms. **Stop generation** keeps any partial text and displays “Generation stopped.” **Retry response** reuses the original prompt and assistant placeholder, using the currently selected outcome.
+5. Switch chats during generation to see that only the generating chat blocks another send. Exit using **Close preview** or **Leave preview** to cancel pending timers and clear preview conversations and shares.
+
+Shares contain only completed messages at the moment they are created. A pending, stopped, or failed assistant response is excluded; its completed user prompt may still be included. Later messages never update an existing snapshot. Refresh the snapshot explicitly to issue a replacement URL.
+
+The preview subscription and generation interfaces are isolated from the production API contract. Automated tests cover progressive updates and failures with fake timers, navigation, cleanup, keyboard behavior, loading recovery, and read-only snapshots.
 
 ## Backend integration
 
