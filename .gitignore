@@ -6,3 +6,6 @@ dist/
 !.env.example
 coverage/
 *.log
+server/src/generated/
+.tmp/
+server/prisma/auth.generated.prisma

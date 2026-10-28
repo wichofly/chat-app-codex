@@ -7,15 +7,15 @@ Thread is a small, multi-user, text-only AI chat application with saved conversa
 Before starting work:
 
 1. Read [SPEC.md](SPEC.md), the source of truth for requirements, architecture, API contracts, security rules, and acceptance criteria. If it is renamed to `SPEC.md`, read that file instead. Do not silently resolve conflicting specifications or invent requirements.
-2. Read [ROADMAP.md](ROADMAP.md) for implementation priorities and the scope of the current phase, then [README.md](README.md) for setup and known limitations. The current roadmap is a frontend completion plan; its exclusions do not remove backend requirements from the full MVP.
+2. Read [ROADMAP.md](ROADMAP.md) for implementation priorities and the scope of the current phase, then [README.md](README.md) for setup and known limitations. Phase-specific exclusions do not remove requirements from the full MVP.
 3. Inspect the relevant source, package manifests, lockfile, configuration, tests, and applicable directory instructions. Preserve existing user changes and keep edits focused on the requested task.
 
 ### Current implementation and intended architecture
 
-- The repository uses npm workspaces with a `client/` workspace. Use npm and maintain `package-lock.json`; Node must satisfy the root `engines` requirement (currently 22.12+).
+- The repository uses npm workspaces with `client/` and `server/` workspaces. Use npm and maintain `package-lock.json`; Node must satisfy the root `engines` requirement (currently 22.12+).
 - The existing client uses React 19, strict TypeScript, Vite, React Router, Tailwind CSS, TipTap, Lucide icons, Vitest, and React Testing Library with jsdom.
 - Client organization: `app/` for routes/providers, `components/` for reusable UI, `features/` for auth/chats/sharing, `lib/` for API contracts/helpers, `styles/` for styling, and `test/` for tests.
-- The specified backend is a separate Node.js 22+/Express 5 TypeScript ESM application using Zod, Better Auth, PostgreSQL, Prisma, Vercel AI SDK, and OpenRouter. It is not implemented or installed yet. Follow the spec's modular `server/` structure when a task includes backend work; do not import server modules into the client.
+- The `server/` workspace uses Node.js 22+/Express 5, TypeScript ESM, Zod, Better Auth, PostgreSQL, and Prisma for authentication and owned chat CRUD. AI SDK/OpenRouter and durable message/sharing features remain to be implemented. Follow the spec's modular structure; do not import server modules into the client.
 - The current UI preview is explicitly labeled, memory-only, and separate from production API contracts. It resets on refresh, preserves per-chat generation across navigation, and cancels generation timers and clears preview data on exit. Do not present simulated responses, accounts, or share links as real services or durable persistence.
 
 ## TypeScript and code quality
@@ -59,7 +59,7 @@ Before starting work:
 ## Testing and verification
 
 - After code changes, run relevant TypeScript checks, configured linting, and tests. Use the actual package scripts rather than inventing commands or claiming unavailable checks passed.
-- From the repository root, `npm run build` runs the client's TypeScript check (`tsc -b`) and production Vite build; `npm test` runs the Vitest suite. `npm run dev` starts local development; `npm run preview` serves an existing production build.
+- From the root, `npm run build` checks/builds both workspaces; `npm test` runs client and database-independent server tests. `npm run test:integration` requires TEST_DATABASE_URL and verifies real PostgreSQL authentication in an isolated schema. `npm run typecheck --workspace server` also checks server test types. `npm run dev` starts Vite; `npm run dev:server` starts Express. See README for migrations and environment setup.
 - No lint script or linter configuration currently exists. Run applicable lint scripts when configured; otherwise report linting as unavailable. Do not introduce a linter solely to satisfy this instruction.
 - Verify changed behavior against SPEC.md acceptance criteria and the applicable roadmap requirements. Add focused behavior/regression tests for meaningful changes; use fake timers for simulated generation and mocked providers for failure boundaries.
 - Preserve coverage for route access, keyboard/composer behavior, safe rich-text rendering, generation/Stop/Retry, navigation cleanup, and snapshot immutability/revocation. When backend work is introduced, include ownership/authentication, persistence/CRUD, share lifecycle, idempotency, and fallback/partial-stream integration tests as specified.

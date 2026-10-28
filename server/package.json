@@ -1,0 +1,39 @@
+{
+  "name": "@thread/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "auth:generate": "auth generate --config auth.config.ts --output prisma/auth.generated.prisma --yes",
+    "typecheck": "prisma generate && tsc --noEmit -p tsconfig.json",
+    "test": "prisma generate && vitest run --exclude src/tests/auth.integration.test.ts",
+    "test:integration": "prisma generate && vitest run src/tests/auth.integration.test.ts"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "auth": "^1.7.14",
+    "prisma": "^7.10.1",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "better-auth": "^1.7.14",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  }
+}

@@ -13,13 +13,15 @@ import type {
   PreviewChatService,
   PreviewOutcome,
 } from '../features/chats/preview-types';
-import { api, auth } from '../lib/api';
+import { api } from '../lib/api';
+import { createThreadAuthClient } from '../lib/auth-client';
 import type { ChatService, User } from '../lib/types';
 
 type AppState = {
   user: User | null;
   sessionLoading: boolean;
   sessionError: boolean;
+  retrySession: () => Promise<void>;
   preview: boolean;
   service: ChatService;
   previewService: PreviewChatService | null;
@@ -36,14 +38,24 @@ type AppState = {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [sessionLoading, setSessionLoading] = useState(true);
-  const [sessionError, setSessionError] = useState(false);
+  const [authClient] = useState(createThreadAuthClient);
+  const session = authClient.useSession();
+  const [revokedSessionId, setRevokedSessionId] = useState<string | null>(null);
   const [previewService, setPreviewService] =
     useState<PreviewChatService | null>(null);
   const [previewOutcome, setPreviewOutcome] =
     useState<PreviewOutcome>('normal');
   const preview = previewService !== null;
+  const sessionRevoked =
+    revokedSessionId !== null && session.data?.session.id === revokedSessionId;
+  const user: User | null = preview
+    ? { id: 'preview-user', name: 'Alex', email: 'alex@example.test' }
+    : sessionRevoked
+      ? null
+      : (session.data?.user ?? null);
+  const sessionLoading = !preview && session.isPending;
+  const sessionError =
+    !preview && !!session.error && session.error.status !== 401;
   const service = previewService ?? api;
   const [revision, setRevision] = useState(0);
   const [toast, setToast] = useState<{
@@ -52,22 +64,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    let active = true;
-    auth
-      .session()
-      .then((session) => {
-        if (active) setUser(session?.user ?? null);
-      })
-      .catch(() => {
-        if (active) setSessionError(true);
-      })
-      .finally(() => {
-        if (active) setSessionLoading(false);
-      });
-    return () => {
-      active = false;
+    const recheck = () => {
+      void session.refetch();
     };
-  }, []);
+    window.addEventListener('thread:session-expired', recheck);
+    return () => window.removeEventListener('thread:session-expired', recheck);
+  }, [session.refetch]);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => () => previewService?.dispose(), [previewService]);
   const notify = useCallback((message: string, error = false) => {
@@ -80,6 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     user,
     sessionLoading,
     sessionError,
+    retrySession: session.refetch,
     preview,
     service,
     previewService,
@@ -89,18 +92,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refresh,
     notify,
     login: async (email, password) => {
-      const session = await auth.login(email, password);
-      setUser(session.user);
-      setSessionError(false);
+      const result = await authClient.signIn.email({ email, password });
+      if (result.error)
+        throw new Error(
+          result.error.message || 'Unable to sign in. Please try again.',
+        );
+      await session.refetch();
     },
     signup: async (name, email, password) => {
-      const session = await auth.signup(name, email, password);
-      setUser(session.user);
-      setSessionError(false);
+      const result = await authClient.signUp.email({ name, email, password });
+      if (result.error)
+        throw new Error(
+          result.error.message ||
+            'Unable to create your account. Please try again.',
+        );
+      await session.refetch();
     },
     signOut: async () => {
-      if (!preview) await auth.logout();
-      setUser(null);
+      if (!preview) {
+        const result = await authClient.signOut();
+        if (result.error)
+          throw new Error(
+            result.error.message || 'Unable to sign out. Please try again.',
+          );
+        // A failed background recheck must not restore a session the server just revoked.
+        setRevokedSessionId(session.data?.session.id ?? null);
+        await session.refetch();
+      }
       previewService?.dispose();
       setPreviewService(null);
       setPreviewOutcome('normal');
@@ -110,8 +128,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       previewService?.dispose();
       setPreviewService(createPreviewService());
       setPreviewOutcome('normal');
-      setSessionLoading(false);
-      setUser({ id: 'preview-user', name: 'Alex', email: 'alex@example.test' });
       refresh();
     },
   };

@@ -4,15 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite --host localhost",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "vite preview --host localhost",
     "test": "vitest run"
   },
   "dependencies": {
     "@tiptap/extension-placeholder": "^3.0.0",
     "@tiptap/react": "^3.0.0",
     "@tiptap/starter-kit": "^3.0.0",
+    "better-auth": "^1.7.14",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

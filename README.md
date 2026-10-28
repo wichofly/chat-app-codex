@@ -1,23 +1,49 @@
-# Thread · Chat app UI foundation
+# Thread · Chat App
 
-The base React 19 + TypeScript pages and layouts from [SPEC.md](SPEC.md). This delivery is the **frontend foundation**, not the complete MVP backend.
+React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/password authentication, PostgreSQL/Prisma sessions, and ownership-protected chat CRUD. Requirements are defined in [SPEC.md](SPEC.md); current priorities are in [ROADMAP.md](ROADMAP.md). AI generation and durable public sharing remain future work.
 
 ## Run locally
 
-Requires Node **22.12+** and npm.
+Requires Node **22.12+**, npm, and PostgreSQL. Create a dedicated empty `chat_app` database using your PostgreSQL installation before applying migrations.
 
 ```sh
 npm install
+```
+
+Copy `server/.env.example` to `server/.env` (PowerShell: `Copy-Item server/.env.example server/.env`). Set `DATABASE_URL` to your database connection and replace `BETTER_AUTH_SECRET` with a random value of at least 32 characters. Generate a value locally with:
+
+```sh
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+Keep `.env` private. The default URLs are `http://localhost:3001` for the API and `http://localhost:5173` for the client. Use `localhost` consistently; changing the hostname or port also requires matching `CLIENT_ORIGIN`, `BETTER_AUTH_URL`, and any client API URL override.
+
+Generate the client and apply the committed initial migration:
+
+```sh
+npm run db:generate
+npm run db:migrate
+```
+
+Run these commands in separate terminals:
+
+```sh
+npm run dev:server
 npm run dev
 ```
 
-Open the Local URL printed by Vite. From the sign-in page, choose **Explore the UI preview** to try the interface with sample data. Preview changes live only in memory and reset when you refresh. Passwords and conversations are never saved in localStorage.
+Open `http://localhost:5173/signup` to register with name, email, and password. Sign-in, refresh restoration, and sign-out use Better Auth and database sessions through HTTP-only cookies. Chat names survive refresh and sign-out; each account sees only its own chats. No email verification or password recovery is configured, so keep the demo password safe. This demo configuration is not intended for production users.
+
+The UI can also run without the API: choose **Explore the UI preview** on the sign-in page after the session check completes. Preview changes live only in memory and reset on refresh. Neither mode stores passwords or conversation records in localStorage.
 
 ```sh
-npm run build   # TypeScript check and production build
-npm run preview # Serve client/dist locally after building
-npm test        # UI, access-state, safe-rendering and snapshot tests
+npm run build   # Client and server TypeScript checks and builds
+npm run preview # Serve client/dist locally; use a /api reverse proxy or configure the API URL
+npm test        # UI tests and server checks that do not require PostgreSQL
+npm run typecheck --workspace server # Include server test code in the TypeScript check
 ```
+
+For real database integration tests, set `TEST_DATABASE_URL` to a dedicated PostgreSQL test database, then run `npm run test:integration`. The suite migrates a unique `thread_auth_test_...` schema and drops only that schema afterward. It tests password hashing, session cookies and restoration, wrong credentials, sign-out revocation, expiry, production Secure cookies, origin checks, auth rate limits, and cross-account CRUD isolation. Never use a production database for tests. No lint command is currently configured.
 
 ## Pages
 
@@ -30,7 +56,7 @@ npm test        # UI, access-state, safe-rendering and snapshot tests
 | `/shared/:token` | Public, read-only snapshot; no composer or private account metadata           |
 | `*`              | Not Found                                                                     |
 
-`/` redirects to `/chats`. Guests opening private routes redirect to `/login`. These frontend guards are navigation behavior; the future server must enforce session checks and ownership independently.
+`/` redirects to `/chats`. Guests opening private routes redirect to `/login`. Express independently checks Better Auth sessions and ownership on chat endpoints; non-owned chats return a generic 404. Expired private API sessions trigger a client session recheck.
 
 ## What works now
 
@@ -42,6 +68,8 @@ npm test        # UI, access-state, safe-rendering and snapshot tests
 - Complete loading, empty, failure and recovery states; consistent page titles; a route error fallback with a reload action.
 - Shared view adds `noindex, nofollow` metadata while mounted. Invalid or revoked tokens show the same unavailable page.
 - API adapters for the spec’s session, auth, chat CRUD and sharing endpoints, using credentialed requests.
+- Better Auth React client with email/password sign-up, sign-in, session refresh/restoration, and sign-out. Auth requests are mounted before Express body parsing; passwords are hashed by Better Auth and sessions are persisted in PostgreSQL.
+- Real ownership-protected create/list/open/rename/delete for empty chats. The server returns an empty message list until message persistence is implemented; unavailable AI/share operations return a clear 503 after ownership checks.
 
 **Real AI sending and streaming are not implemented.** Outside preview, sending shows an explanatory state and retains the draft. The preview uses fixed, clearly labeled sample responses without calling a model. Preview share links work only within the active preview tab; they are not public, durable links. Sign out/leave preview before trying real API authentication.
 
@@ -63,9 +91,19 @@ The default API base is `/api`; Vite proxies it to `http://localhost:3001`. To u
 
 `client/src/lib/api.ts` expects `{ data: ... }` for application responses and `{ error: { code, message } }` for errors. Better Auth’s standard session and email/password endpoint response shapes are also supported. Chat detail expects `{ id, title, createdAt, updatedAt, messages }`; sharing state expects `{ url: string | null, sharedAt?: string }`; public snapshots expect `{ title, messages, sharedAt }`. List expects a data array, with pagination deferred.
 
-Still required for the full spec: Express server, PostgreSQL/Prisma, Better Auth configuration, migrations, server validation/ownership, durable share snapshots and secure tokens, AI SDK `useChat` transport and OpenRouter streaming/fallback/stop/retry, server rate limits, and backend integration tests. The demo generator is isolated in `features/chats/preview.ts` and is never used as a production data store.
+The API mounts Better Auth at `/api/auth/*splat`, uses its Prisma PostgreSQL adapter, and protects chat routes with `auth.api.getSession`. CORS and mutation origins are allowlisted; auth mutations are limited both by Better Auth and a per-IP Express limiter. Private responses use `Cache-Control: no-store`. Proxy trust is off by default; review proxy/IP settings before deployment. Cookie caching is disabled so database revocation takes effect on subsequent requests.
 
-Production SPA hosting must rewrite non-asset browser routes to `index.html`; route API requests to the separate server. Configure credentialed CORS and trusted origins if hosting the API on another origin. Set `Cache-Control: no-store` on private API responses and public snapshots, and `X-Robots-Tag: noindex, nofollow` on public share responses at the server/host.
+The React client uses the official Better Auth SDK in `client/src/lib/auth-client.ts`; authentication is not decoded through the generic application request helper. Cookie sessions also revalidate on focus and auth changes through the SDK. No secrets belong in client environment variables.
+
+Still required for the full spec: stored messages and sharing snapshots/tokens, AI SDK `useChat` transport, OpenRouter streaming/fallback/stop/retry, AI/public-share rate limits, and their integration tests. The preview generator is never a production data store.
+
+Production SPA hosting must rewrite non-asset browser routes to `index.html` and proxy `/api` to the separate server. Run the compiled API with `npm start --workspace server`. Set production URLs, a private random secret, and `NODE_ENV=production`; HTTPS is required and auth cookies are Secure, HTTP-only, SameSite=Lax. Host the client and API on the same site; unrelated cross-site domains need a separately reviewed cookie strategy. For local `npm run preview` on another port, configure and rebuild with the direct API base URL and allow that exact preview origin on the server. Public share responses must retain `noindex, nofollow` and no-store when implemented.
+
+## Auth schema maintenance
+
+The `User`, `Session`, `Account`, and `Verification` Prisma models were generated with Better Auth CLI 1.7.14; the application adds a `Chat` model and its User relation. To inspect an updated auth schema, run `npm run auth:generate --workspace server`. It writes an ignored `prisma/auth.generated.prisma` file so it cannot overwrite application models. Review the generated auth changes, preserve application relations, generate/review a new Prisma migration, then apply migrations and regenerate the Prisma client. Do not run destructive schema resets against existing data.
+
+Integration references consulted via Context7: [Better Auth Express integration](https://better-auth.com/docs/integrations/express), [Prisma adapter](https://better-auth.com/docs/adapters/prisma), and [React client](https://better-auth.com/docs/concepts/client).
 
 ## Structure
 
@@ -81,4 +119,4 @@ client/src/
   test/             Focused foundation tests
 ```
 
-No server scaffold or database schema is included in this page/layout task. Follow the spec’s delivery phases for that implementation; generate Better Auth’s database models with its CLI.
+`server/` contains `prisma/` for schema/migrations, `src/lib/` for Better Auth and Prisma setup, `src/middleware/` for sessions/errors, `src/modules/chats/` for routes/services/database access, and `src/tests/` for HTTP and PostgreSQL integration tests.

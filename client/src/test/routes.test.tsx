@@ -6,7 +6,7 @@ import { App } from '../app/App'
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    if (url.endsWith('/auth/get-session')) return Response.json(null)
+    if (String(url).endsWith('/auth/get-session')) return Response.json(null)
     return Response.json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }, { status: 404 })
   }))
 })
@@ -27,7 +27,7 @@ describe('base routes', () => {
   })
 
   it('shows a public snapshot without an editor or account metadata', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/get-session') ? Response.json(null) : Response.json({ data: { title: 'A public thought', sharedAt: '2026-10-28T12:00:00Z', messages: [{ role: 'USER', contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A shared question' }] }] } }] } })))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => String(url).endsWith('/auth/get-session') ? Response.json(null) : Response.json({ data: { title: 'A public thought', sharedAt: '2026-10-28T12:00:00Z', messages: [{ role: 'USER', contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A shared question' }] }] } }] } })))
     const view = open('/shared/valid-token')
     expect(await screen.findByRole('heading', { name: 'A public thought' })).toBeInTheDocument()
     expect(screen.getByText('A shared question')).toBeInTheDocument()
@@ -75,7 +75,7 @@ describe('base routes', () => {
 
   it('keeps a composed prompt when sending is not yet connected', async () => {
     const user = userEvent.setup()
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/get-session') ? Response.json({ user: { id: 'user', name: 'Alex', email: 'alex@example.test' } }) : Response.json({ data: [] })))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => String(url).endsWith('/auth/get-session') ? Response.json({ user: { id: 'user', name: 'Alex', email: 'alex@example.test' } }) : Response.json({ data: [] })))
     open('/chats')
     const send = await screen.findByRole('button', { name: 'Send message' })
     expect(send).toBeDisabled()

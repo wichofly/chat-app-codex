@@ -1,5 +1,5 @@
 import { ArrowRight, Eye, EyeOff, Info, Play } from 'lucide-react';
-import { useState, type ChangeEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useApp } from '../../app/providers';
 import { Loading } from '../../components/States';
@@ -14,7 +14,7 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
   const [error, setError] = useState('');
   if (app.sessionLoading) return <Loading label="Checking your session…" />;
   if (app.user) return <Navigate to="/chats" replace />;
-  async function submit(event: ChangeEvent<HTMLFormElement>) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     setBusy(true);
@@ -46,6 +46,23 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
           : 'Pick up a thought. Start something new.'}
       </p>
       <form onSubmit={submit} className="auth-form">
+        {app.sessionError && (
+          <div className="notice" role="status">
+            <Info size={16} />
+            <div>
+              We couldn’t check your session. You can try signing in or check
+              again.
+              <br />
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => void app.retrySession()}
+              >
+                Check session again
+              </button>
+            </div>
+          </div>
+        )}
         {signup && (
           <div className="field">
             <label htmlFor="name">Your name</label>

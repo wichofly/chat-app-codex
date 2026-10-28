@@ -1,8 +1,21 @@
-# Complete the base pages and layouts
+# Chat App roadmap
+
+## Current status and priorities
+
+- Delivered: the six frontend routes/layouts, accessible controls, and isolated interactive UI preview described below.
+- Delivered: Better Auth email/password sign-up/sign-in/sign-out; PostgreSQL/Prisma sessions; Express 5 session/ownership guards; persistent empty-chat CRUD; migrations and setup instructions.
+- Authentication intentionally has no email verification, recovery email, OAuth, or user-supplied API keys, per SPEC.md.
+- Verification: client auth flows and session recovery tests, server HTTP/config checks, and real PostgreSQL integration coverage for hashing, cookies, expiry/revocation, origin checks, rate limiting, and ownership.
+- Next: implement stored messages and server-authoritative AI SDK/OpenRouter streaming, fallback, cancellation, and idempotent retry (SPEC.md phase 3).
+- Then: implement durable public snapshot/token lifecycle and its access-control tests (phase 4), followed by remaining deployment and end-to-end checks (phase 5).
+
+## Delivered frontend plan (historical phase scope)
+
+The plan below records the original frontend-only phase. Its backend exclusions do not apply to the completed authentication work above or to future explicitly requested backend tasks.
 
 ## Summary
 
-Finish the existing frontend foundation while preserving the current Thread design, React/Vite stack, and six specified routes. Add interactive, clearly labeled preview behavior for generation, stopping, and retrying. Backend services remain outside this task.
+The frontend phase preserved the Thread design, React/Vite stack, and six specified routes and added clearly labeled preview generation, stopping, and retrying. Backend services were outside that phase.
 
 ## Page and layout changes
 

@@ -4,7 +4,6 @@ import type {
   ChatSummary,
   ShareState,
   Snapshot,
-  User,
 } from './types';
 
 export class ApiError extends Error {
@@ -43,6 +42,8 @@ export async function request<T>(
   }
   const body = await response.json().catch(() => null);
   if (!response.ok) {
+    if (response.status === 401)
+      window.dispatchEvent(new Event('thread:session-expired'));
     throw new ApiError(
       body?.error?.message ||
         body?.message ||
@@ -77,19 +78,4 @@ export const api: ChatService = {
   },
   getSnapshot: (token) =>
     request<Snapshot>(`/shared/${encodeURIComponent(token)}`),
-};
-
-export const auth = {
-  session: () => request<{ user: User } | null>('/auth/get-session'),
-  login: (email: string, password: string) =>
-    request<{ user: User }>('/auth/sign-in/email', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
-  signup: (name: string, email: string, password: string) =>
-    request<{ user: User }>('/auth/sign-up/email', {
-      method: 'POST',
-      body: JSON.stringify({ name, email, password }),
-    }),
-  logout: () => request('/auth/sign-out', { method: 'POST', body: '{}' }),
 };

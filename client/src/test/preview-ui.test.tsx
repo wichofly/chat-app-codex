@@ -16,10 +16,12 @@ async function enterPreview() {
   return user
 }
 
-async function sendSuggestion(user: ReturnType<typeof userEvent.setup>) {
+async function sendSuggestion(user: ReturnType<typeof userEvent.setup>, waitForStop = true) {
   await user.click(screen.getByRole('button', { name: /Find a fresh angle/ }))
-  await user.click(await screen.findByRole('button', { name: 'Send message' }))
-  await screen.findByRole('button', { name: 'Stop generation' })
+  const send = await screen.findByRole('button', { name: 'Send message' })
+  await waitFor(() => expect(send).toBeEnabled())
+  await user.click(send)
+  if (waitForStop) await screen.findByRole('button', { name: 'Stop generation' })
 }
 
 describe('interactive preview pages', () => {
@@ -51,7 +53,7 @@ describe('interactive preview pages', () => {
   it.each(['fail-before', 'fail-during'])('offers retry after %s and uses the newly selected outcome', async outcome => {
     const user = await enterPreview()
     await user.selectOptions(screen.getByRole('combobox', { name: 'Response' }), outcome)
-    await sendSuggestion(user)
+    await sendSuggestion(user, false)
     expect(await screen.findByText('This response is incomplete. Generation didn’t finish.', {}, { timeout: 4500 })).toBeInTheDocument()
     const assistant = screen.getByRole('article', { name: 'Thread assistant' })
     expect(assistant.querySelector('.rich-text')?.textContent.length === 0).toBe(outcome === 'fail-before')

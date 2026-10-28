@@ -15,8 +15,8 @@ describe('page states', () => {
     let resolveChat!: (response: Response) => void
     const pending = new Promise<Response>(resolve => { resolveChat = resolve })
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/auth/get-session')) return Response.json(session)
-      if (url.endsWith('/chats')) return Response.json({ data: [] })
+      if (String(url).endsWith('/auth/get-session')) return Response.json(session)
+      if (String(url).endsWith('/chats')) return Response.json({ data: [] })
       return pending
     }))
     open('/chats/chat')
@@ -35,8 +35,8 @@ describe('page states', () => {
   it('recovers a conversation load failure with Try again', async () => {
     let attempts = 0
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/auth/get-session')) return Response.json(session)
-      if (url.endsWith('/chats')) return Response.json({ data: [] })
+      if (String(url).endsWith('/auth/get-session')) return Response.json(session)
+      if (String(url).endsWith('/chats')) return Response.json({ data: [] })
       return ++attempts === 1 ? Response.json({ error: { message: 'Temporarily unavailable.' } }, { status: 503 }) : Response.json({ data: chat })
     }))
     const user = userEvent.setup()
@@ -49,7 +49,7 @@ describe('page states', () => {
   it('shows a public snapshot loading error and recovers to an empty read-only snapshot', async () => {
     let attempts = 0
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.endsWith('/auth/get-session')) return Response.json(null)
+      if (String(url).endsWith('/auth/get-session')) return Response.json(null)
       return ++attempts === 1 ? Response.json({ error: { message: 'Please try again.' } }, { status: 503 }) : Response.json({ data: { title: 'Empty snapshot', sharedAt: '2026-10-28T12:00:00Z', messages: [] } })
     }))
     const user = userEvent.setup()
