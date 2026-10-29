@@ -1,12 +1,9 @@
 @import "tailwindcss";
 
-@theme {
-  --color-forest: #285545;
-  --font-sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
 @layer base {
   :root {
+    --color-forest: #285545;
+    --font-sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
     font-family: var(--font-sans);
     color: #303832;
     background: #fcfcf9;
@@ -117,7 +114,7 @@
   }
 
   .button-primary {
-    background: var(--green); 
+    background: var(--green);
     color: #fff;
   }
 
