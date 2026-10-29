@@ -1,9 +1,13 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
+import type { Config } from '../../config.js';
 import type { Auth } from '../../lib/auth.js';
 import type { Database } from '../../lib/prisma.js';
 import { HttpError } from '../../middleware/errors.js';
 import { requireSession } from '../../middleware/require-session.js';
+import type { ModelRunner } from '../ai/provider.js';
+import { messageRepository } from '../ai/repository.js';
+import { streamHandler } from '../ai/stream.js';
 import { chatRepository } from './repository.js';
 import { chatService } from './service.js';
 
@@ -24,9 +28,12 @@ export function chatRoutes(
   database: Database,
   auth: Auth,
   trustedOrigins: string[],
+  config: Config,
+  runModel?: ModelRunner,
 ) {
   const router = Router();
   const service = chatService(chatRepository(database));
+  const stream = streamHandler(database, config, runModel);
   router.use(requireSession(auth));
   router.use((request, _response, next) => {
     if (
@@ -58,7 +65,22 @@ export function chatRoutes(
       chatId.parse(request.params.chatId),
       userId(response),
     );
-    response.json({ data: { ...chat, messages: [] } });
+    await messageRepository(database, config).recover(chat.id);
+    const messages = await database.message.findMany({
+      where: { chatId: chat.id },
+      orderBy: { sequence: 'asc' },
+      select: {
+        id: true,
+        role: true,
+        contentJson: true,
+        plainText: true,
+        status: true,
+        modelId: true,
+        clientMessageId: true,
+        failureCode: true,
+      },
+    });
+    response.json({ data: { ...chat, messages } });
   });
   router.patch('/:chatId', async (request, response) => {
     const data = z.object({ title }).strict().parse(request.body);
@@ -74,7 +96,12 @@ export function chatRoutes(
     await service.delete(chatId.parse(request.params.chatId), userId(response));
     response.status(204).end();
   });
-  for (const feature of ['share', 'messages/stream']) {
+  router.post('/:chatId/messages/stream', async (request, response) => {
+    const id = chatId.parse(request.params.chatId);
+    await service.get(id, userId(response));
+    await stream(request, response, id, userId(response));
+  });
+  for (const feature of ['share']) {
     router.all(`/:chatId/${feature}`, async (request, _response) => {
       await service.get(chatId.parse(request.params.chatId), userId(_response));
       throw new HttpError(

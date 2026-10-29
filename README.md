@@ -1,6 +1,6 @@
 # Thread · Chat App
 
-React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/password authentication, PostgreSQL/Prisma sessions, and ownership-protected chat CRUD. Requirements are defined in [SPEC.md](SPEC.md); current priorities are in [ROADMAP.md](ROADMAP.md). AI generation and durable public sharing remain future work.
+React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/password authentication, PostgreSQL/Prisma persistence, and streamed OpenRouter responses through AI SDK 7. Requirements are defined in [SPEC.md](SPEC.md); current priorities are in [ROADMAP.md](ROADMAP.md). Durable public sharing remains future work.
 
 ## Run locally
 
@@ -43,7 +43,19 @@ npm test        # UI tests and server checks that do not require PostgreSQL
 npm run typecheck --workspace server # Include server test code in the TypeScript check
 ```
 
-For real database integration tests, set `TEST_DATABASE_URL` to a dedicated PostgreSQL test database, then run `npm run test:integration`. The suite migrates a unique `thread_auth_test_...` schema and drops only that schema afterward. It tests password hashing, session cookies and restoration, wrong credentials, sign-out revocation, expiry, production Secure cookies, origin checks, auth rate limits, and cross-account CRUD isolation. Never use a production database for tests. No lint command is currently configured.
+For real database integration tests, set `TEST_DATABASE_URL` to a dedicated PostgreSQL test database, then run `npm run test:integration`. The suites migrate unique `thread_auth_test_...` and `thread_ai_test_...` schemas and drop only those schemas afterward. They test authentication/ownership, persisted messages, idempotent replay/retry, concurrent sends, abandoned pending recovery, daily budgets, and HTTP disconnect cancellation with mocked models. Never use a production database for tests. No lint command is currently configured. If client tests time out under parallel worker load, run `npm run test --workspace client -- --maxWorkers=1`.
+
+## Connect OpenRouter
+
+Set `OPENROUTER_API_KEY` in `server/.env` and restart the API after changing environment values. The existing name `OPENROUTER_KEY` is also accepted; the canonical name takes precedence. Never put either key in client environment variables. Run `npm run db:generate` and `npm run db:migrate` after pulling schema changes, including the message-storage migration.
+
+Sign in, write a prompt, and send. Sending from `/chats` creates a persisted conversation. The React client uses `useChat` and `DefaultChatTransport`, sending only `clientMessageId` and TipTap `contentJson`; the server loads the completed history. Replies stream progressively, store the selected model, and reload from safe TipTap JSON. Stop aborts upstream generation and preserves partial text as failed. Retry reuses the original prompt and assistant row. Leaving a real conversation cancels its active request; the separate UI preview retains its original navigation behavior.
+
+The three `OPENROUTER_MODEL_1/2/3` values define the server-side fallback order from SPEC.md. A model is tried once per request. Temporary errors, rate limits, unavailable models and first-token timeouts can fall back before text appears; credentials, invalid input and exhausted credit do not. Once response text reaches the client, failures remain visibly incomplete and never switch models mid-answer. Free-model availability and provider quotas can change independently of the app.
+
+Defaults are 15 generation attempts per account per UTC day (including retries), 6,000 user characters, 20 completed history messages with a 24,000-character history bound, 1,024 output tokens, a 15-second first-token deadline per candidate and a 90-second total request deadline. See `server/.env.example` for configurable limits. Pending attempts abandoned after a crash become retryable after the total deadline plus a five-second grace period. An account's daily budget and each chat's generation guard are enforced in PostgreSQL, including across server processes.
+
+Tests mock providers and never spend OpenRouter quota. For a bounded live smoke check, send one short non-private prompt and confirm a reply, its model label, and persistence after refresh. Do not repeatedly retry credential or quota failures.
 
 ## Pages
 
@@ -69,9 +81,9 @@ For real database integration tests, set `TEST_DATABASE_URL` to a dedicated Post
 - Shared view adds `noindex, nofollow` metadata while mounted. Invalid or revoked tokens show the same unavailable page.
 - API adapters for the spec’s session, auth, chat CRUD and sharing endpoints, using credentialed requests.
 - Better Auth React client with email/password sign-up, sign-in, session refresh/restoration, and sign-out. Auth requests are mounted before Express body parsing; passwords are hashed by Better Auth and sessions are persisted in PostgreSQL.
-- Real ownership-protected create/list/open/rename/delete for empty chats. The server returns an empty message list until message persistence is implemented; unavailable AI/share operations return a clear 503 after ownership checks.
+- Real ownership-protected chat CRUD and message persistence, streaming responses, pre-content fallback, Stop, Retry, and per-account usage limits. Durable sharing operations still return a clear 503 after ownership checks.
 
-**Real AI sending and streaming are not implemented.** Outside preview, sending shows an explanatory state and retains the draft. The preview uses fixed, clearly labeled sample responses without calling a model. Preview share links work only within the active preview tab; they are not public, durable links. Sign out/leave preview before trying real API authentication.
+**Real AI requires the server's OpenRouter key.** The separate UI preview continues to use fixed, clearly labeled sample responses without calling a model. Preview share links work only within the active preview tab; they are not public, durable links. Sign out/leave preview before trying real API authentication.
 
 ## Try the interactive preview
 
@@ -95,13 +107,13 @@ The API mounts Better Auth at `/api/auth/*splat`, uses its Prisma PostgreSQL ada
 
 The React client uses the official Better Auth SDK in `client/src/lib/auth-client.ts`; authentication is not decoded through the generic application request helper. Cookie sessions also revalidate on focus and auth changes through the SDK. No secrets belong in client environment variables.
 
-Still required for the full spec: stored messages and sharing snapshots/tokens, AI SDK `useChat` transport, OpenRouter streaming/fallback/stop/retry, AI/public-share rate limits, and their integration tests. The preview generator is never a production data store.
+Still required for the full spec: durable sharing snapshots/tokens, public-share rate limits, and their integration tests. The preview generator is never a production data store.
 
 Production SPA hosting must rewrite non-asset browser routes to `index.html` and proxy `/api` to the separate server. Run the compiled API with `npm start --workspace server`. Set production URLs, a private random secret, and `NODE_ENV=production`; HTTPS is required and auth cookies are Secure, HTTP-only, SameSite=Lax. Host the client and API on the same site; unrelated cross-site domains need a separately reviewed cookie strategy. For local `npm run preview` on another port, configure and rebuild with the direct API base URL and allow that exact preview origin on the server. Public share responses must retain `noindex, nofollow` and no-store when implemented.
 
 ## Auth schema maintenance
 
-The `User`, `Session`, `Account`, and `Verification` Prisma models were generated with Better Auth CLI 1.7.14; the application adds a `Chat` model and its User relation. To inspect an updated auth schema, run `npm run auth:generate --workspace server`. It writes an ignored `prisma/auth.generated.prisma` file so it cannot overwrite application models. Review the generated auth changes, preserve application relations, generate/review a new Prisma migration, then apply migrations and regenerate the Prisma client. Do not run destructive schema resets against existing data.
+The `User`, `Session`, `Account`, and `Verification` Prisma models were generated with Better Auth CLI 1.7.14; application models include `Chat`, `Message`, and `GenerationUsage`. To inspect an updated auth schema, run `npm run auth:generate --workspace server`. It writes an ignored `prisma/auth.generated.prisma` file so it cannot overwrite application models. Review the generated auth changes, preserve application relations, generate/review a new Prisma migration, then apply migrations and regenerate the Prisma client. Do not run destructive schema resets against existing data.
 
 Integration references consulted via Context7: [Better Auth Express integration](https://better-auth.com/docs/integrations/express), [Prisma adapter](https://better-auth.com/docs/adapters/prisma), and [React client](https://better-auth.com/docs/concepts/client).
 
@@ -119,4 +131,4 @@ client/src/
   test/             Focused foundation tests
 ```
 
-`server/` contains `prisma/` for schema/migrations, `src/lib/` for Better Auth and Prisma setup, `src/middleware/` for sessions/errors, `src/modules/chats/` for routes/services/database access, and `src/tests/` for HTTP and PostgreSQL integration tests.
+`server/` contains `prisma/` for schema/migrations, `src/lib/` for Better Auth and Prisma setup, `src/middleware/` for sessions/errors, `src/modules/chats/` for chat routes/services, `src/modules/ai/` for validation, conversion, provider fallback and streaming persistence, and `src/tests/` for HTTP and PostgreSQL integration tests.

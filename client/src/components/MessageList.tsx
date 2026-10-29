@@ -5,7 +5,7 @@ import { ThreadMark } from './Brand';
 import { RichText } from './RichText';
 
 type DisplayMessage = Pick<Message, 'role' | 'contentJson'> &
-  Partial<Pick<Message, 'id' | 'status' | 'modelId'>>;
+  Partial<Pick<Message, 'id' | 'status' | 'modelId' | 'failureCode'>>;
 
 export function MessageList({
   messages,
@@ -15,7 +15,7 @@ export function MessageList({
 }: {
   messages: DisplayMessage[];
   generation?: PreviewGeneration;
-  onRetry?: () => void;
+  onRetry?: (messageId?: string) => void;
   preview?: boolean;
 }) {
   return (
@@ -58,19 +58,21 @@ export function MessageList({
               <div className="message-failure">
                 <p className="message-failed" role="alert">
                   <AlertCircle size={16} />
-                  {generation &&
-                  generation.messageId === message.id &&
-                  generation.phase === 'stopped'
+                  {message.failureCode === 'STOPPED' ||
+                  (generation &&
+                    generation.messageId === message.id &&
+                    generation.phase === 'stopped')
                     ? 'Generation stopped.'
                     : 'This response is incomplete. Generation didn’t finish.'}
                 </p>
                 {onRetry &&
-                  generation &&
-                  generation.messageId === message.id &&
-                  ['failed', 'stopped'].includes(generation.phase) && (
+                  ((generation &&
+                    generation.messageId === message.id &&
+                    ['failed', 'stopped'].includes(generation.phase)) ||
+                    (!preview && index === messages.length - 1)) && (
                     <button
                       className="button button-secondary retry-button"
-                      onClick={onRetry}
+                      onClick={() => onRetry(message.id)}
                     >
                       Retry response
                     </button>

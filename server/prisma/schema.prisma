@@ -18,6 +18,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   chats         Chat[]
+  generationUsage GenerationUsage[]
 
   @@unique([email])
   @@map("user")
@@ -79,6 +80,49 @@ model Chat {
   title     String   @db.VarChar(100)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  messages  Message[]
 
   @@index([userId, updatedAt])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum MessageStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model Message {
+  id              String        @id @default(uuid()) @db.Uuid
+  chatId          String        @db.Uuid
+  chat            Chat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role            MessageRole
+  sequence        Int
+  contentJson     Json?
+  plainText       String        @default("")
+  status          MessageStatus
+  modelId         String?
+  clientMessageId String?        @db.Uuid
+  generationId    String?        @db.Uuid
+  failureCode     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([chatId, sequence])
+  @@unique([chatId, clientMessageId])
+  @@index([chatId, status])
+}
+
+// Account/day counters include retries and are updated under a database lock.
+model GenerationUsage {
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day    DateTime @db.Date
+  count  Int      @default(0)
+
+  @@id([userId, day])
 }

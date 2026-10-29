@@ -7,8 +7,8 @@ import {
   PencilLine,
   Share2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useApp } from '../../app/providers';
 import { ThreadMark } from '../../components/Brand';
 import { ChatActionsDialog } from '../../components/ChatActionsDialog';
@@ -24,6 +24,7 @@ import type { RichDocument } from '../../lib/types';
 import { useDocumentTitle } from '../../lib/use-document-title';
 import { useResource } from '../../lib/use-resource';
 import { ShareDialog } from '../sharing/ShareDialog';
+import { useLiveChat } from './use-live-chat';
 import { usePreviewChat } from './use-preview';
 
 const suggestions = [
@@ -54,6 +55,8 @@ export function ChatPage() {
   const { service, revision, refresh, previewService, previewOutcome, notify } =
     useApp();
   const navigate = useNavigate();
+  const location = useLocation();
+  const consumedPrompt = useRef<string | null>(null);
   const resource = useResource(
     () =>
       chatId && !previewService
@@ -69,28 +72,89 @@ export function ChatPage() {
       ? new ApiError('Conversation not found.', 404)
       : null
     : resource.error;
+  const live = useLiveChat(chatId, chat, !previewService, refresh);
+  const displayedMessages = previewService
+    ? (chat?.messages ?? [])
+    : live.messages;
   const generating =
+    live.busy ||
     snapshot?.generation.phase === 'generating' ||
     !!chat?.messages.some((message) => message.status === 'PENDING');
   const [sharing, setSharing] = useState(false);
   const [rename, setRename] = useState(false);
   const [prompt, setPrompt] = useState<{ text: string; key: number }>();
-  const [sendError, setSendError] = useState('');
   useEffect(() => {
-    setSendError('');
     setPrompt(undefined);
     setSharing(false);
     setRename(false);
   }, [chatId]);
+  useEffect(() => {
+    const state: unknown = location.state;
+    if (
+      previewService ||
+      !chatId ||
+      loading ||
+      error ||
+      !state ||
+      typeof state !== 'object' ||
+      !('pendingPrompt' in state)
+    )
+      return;
+    const pending = state.pendingPrompt;
+    if (
+      !pending ||
+      typeof pending !== 'object' ||
+      !('clientMessageId' in pending) ||
+      typeof pending.clientMessageId !== 'string' ||
+      !('contentJson' in pending)
+    )
+      return;
+    const document = pending.contentJson;
+    if (
+      !document ||
+      typeof document !== 'object' ||
+      !('type' in document) ||
+      document.type !== 'doc' ||
+      consumedPrompt.current === pending.clientMessageId
+    )
+      return;
+    const clientMessageId = pending.clientMessageId;
+    const contentJson: RichDocument = { ...document, type: 'doc' };
+    // Submit only after the mounted effect survives StrictMode's setup/cleanup cycle.
+    const timer = setTimeout(() => {
+      if (live.send(contentJson, clientMessageId)) {
+        consumedPrompt.current = clientMessageId;
+        navigate(location.pathname, { replace: true, state: null });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [
+    location.state,
+    location.pathname,
+    chatId,
+    loading,
+    error,
+    previewService,
+    live.send,
+    navigate,
+  ]);
   useDocumentTitle(
     error ? 'Conversation unavailable' : chat?.title || 'Your space',
   );
   async function send(content: RichDocument) {
     if (!previewService) {
-      setSendError(
-        'Sending will be available when the AI service is connected. Your draft is still here.',
-      );
-      return false;
+      if (chatId) return live.send(content);
+      const created = await service.createChat();
+      refresh();
+      navigate(`/chats/${created.id}`, {
+        state: {
+          pendingPrompt: {
+            contentJson: content,
+            clientMessageId: crypto.randomUUID(),
+          },
+        },
+      });
+      return true;
     }
     const targetId = chatId ?? (await previewService.createChat()).id;
     previewService.send(targetId, content, previewOutcome);
@@ -113,7 +177,7 @@ export function ChatPage() {
   if (error instanceof ApiError && error.status === 404)
     return <NotFound nested />;
   if (error) return <ErrorState message={error.message} retry={refresh} />;
-  const hasMessages = !!chat?.messages.length;
+  const hasMessages = displayedMessages.length > 0;
   return (
     <div className="chat-page">
       <header className="chat-header">
@@ -166,10 +230,10 @@ export function ChatPage() {
               </span>
             </div>
             <MessageList
-              messages={chat!.messages}
+              messages={displayedMessages}
               preview={!!previewService}
               generation={snapshot?.generation}
-              onRetry={previewService ? retry : undefined}
+              onRetry={previewService ? retry : live.retry}
             />
           </>
         ) : (
@@ -213,13 +277,9 @@ export function ChatPage() {
         )}
       </div>
       <div className="composer-dock">
-        {sendError && (
+        {!previewService && live.error && (
           <div className="send-error" role="alert">
-            <strong>AI isn’t connected yet.</strong>
-            <p>{sendError}</p>
-            <button className="text-button" onClick={() => setSendError('')}>
-              Dismiss
-            </button>
+            <p>{live.error}</p>
           </div>
         )}
         <Composer
@@ -231,7 +291,7 @@ export function ChatPage() {
           onStop={
             previewService && chatId
               ? () => previewService.stop(chatId)
-              : undefined
+              : live.stop
           }
         />
       </div>

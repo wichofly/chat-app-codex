@@ -15,6 +15,8 @@ export type Message = {
   plainText: string;
   status: 'PENDING' | 'COMPLETED' | 'FAILED';
   modelId?: string | null;
+  clientMessageId?: string | null;
+  failureCode?: string | null;
 };
 export type Chat = ChatSummary & { messages: Message[] };
 export type Snapshot = {

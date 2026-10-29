@@ -26,10 +26,50 @@ const environment = z.object({
     ),
   BETTER_AUTH_URL: httpUrl.default('http://localhost:3001'),
   CLIENT_ORIGIN: httpUrl.default('http://localhost:5173'),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_MODEL_1: z.string().min(1).default('cohere/north-mini-code:free'),
+  OPENROUTER_MODEL_2: z
+    .string()
+    .min(1)
+    .default('google/gemma-4-26b-a4b-it:free'),
+  OPENROUTER_MODEL_3: z
+    .string()
+    .min(1)
+    .default('nvidia/nemotron-3-nano-30b-a3b:free'),
+  MAX_GENERATIONS_PER_USER_DAY: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .default(15),
+  MAX_USER_MESSAGE_CHARS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(12000)
+    .default(6000),
+  MAX_HISTORY_MESSAGES: z.coerce.number().int().min(1).max(40).default(20),
+  MAX_AI_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(4096).default(1024),
+  AI_FIRST_TOKEN_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(60000)
+    .default(15000),
+  AI_TOTAL_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(180000)
+    .default(90000),
 });
 
 export function readConfig(input: NodeJS.ProcessEnv = process.env) {
-  const result = environment.safeParse(input);
+  const key = input.OPENROUTER_API_KEY || input.OPENROUTER_KEY;
+  const result = environment.safeParse({
+    ...input,
+    OPENROUTER_API_KEY: key && !key.startsWith('replace-') ? key : undefined,
+  });
   if (!result.success) {
     // Report field names only; never include environment values or connection credentials.
     throw new Error(

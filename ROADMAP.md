@@ -6,8 +6,9 @@
 - Delivered: Better Auth email/password sign-up/sign-in/sign-out; PostgreSQL/Prisma sessions; Express 5 session/ownership guards; persistent empty-chat CRUD; migrations and setup instructions.
 - Authentication intentionally has no email verification, recovery email, OAuth, or user-supplied API keys, per SPEC.md.
 - Verification: client auth flows and session recovery tests, server HTTP/config checks, and real PostgreSQL integration coverage for hashing, cookies, expiry/revocation, origin checks, rate limiting, and ownership.
-- Next: implement stored messages and server-authoritative AI SDK/OpenRouter streaming, fallback, cancellation, and idempotent retry (SPEC.md phase 3).
-- Then: implement durable public snapshot/token lifecycle and its access-control tests (phase 4), followed by remaining deployment and end-to-end checks (phase 5).
+- Delivered: stored messages, AI SDK 7/OpenRouter streaming, bounded pre-content fallback, cancellation, safe Markdown conversion, idempotent replay/retry, database concurrency guards and account usage limits (SPEC.md phase 3).
+- Verification: provider failure/timeout/cancellation tests, real PostgreSQL message lifecycle and disconnect tests, React SDK streaming tests, and a bounded live primary-model browser check including refresh persistence and mobile rendering.
+- Next: implement durable public snapshot/token lifecycle and its access-control tests (phase 4), followed by remaining deployment and end-to-end checks (phase 5).
 
 ## Delivered frontend plan (historical phase scope)
 

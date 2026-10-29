@@ -6,16 +6,19 @@ import type { Config } from './config.js';
 import type { Auth } from './lib/auth.js';
 import type { Database } from './lib/prisma.js';
 import { errorHandler, HttpError } from './middleware/errors.js';
+import type { ModelRunner } from './modules/ai/provider.js';
 import { chatRoutes } from './modules/chats/routes.js';
 
 export function createApp({
   config,
   auth,
   database,
+  runModel,
 }: {
   config: Config;
   auth: Auth;
   database: Database;
+  runModel?: ModelRunner;
 }) {
   const app = express();
   const trustedOrigins = [
@@ -68,7 +71,10 @@ export function createApp({
   app.get('/api/health', (_request, response) => {
     response.json({ data: { status: 'ok' } });
   });
-  app.use('/api/chats', chatRoutes(database, auth, trustedOrigins));
+  app.use(
+    '/api/chats',
+    chatRoutes(database, auth, trustedOrigins, config, runModel),
+  );
   app.use('/api/shared', (_request, response) => {
     response
       .set('X-Robots-Tag', 'noindex, nofollow')
