@@ -44,6 +44,39 @@ function mockStream() {
   return { fetcher, emit, finish };
 }
 describe('real chat transport', () => {
+  it('retries a rejected request without duplicating the optimistic prompt', async () => {
+    const stream = mockStream();
+    stream.fetcher.mockResolvedValueOnce(
+      Response.json(
+        { error: { message: 'The AI service is unavailable.' } },
+        { status: 503 },
+      ),
+    );
+    const refresh = vi.fn();
+    const { result } = renderHook(() =>
+      useLiveChat(chat.id, chat, true, refresh),
+    );
+    const clientMessageId = crypto.randomUUID();
+    act(() => {
+      result.current.send(paragraph('Keep this prompt'), clientMessageId);
+    });
+    await waitFor(() =>
+      expect(result.current.error).toBe('The AI service is unavailable.'),
+    );
+    expect(result.current.messages.at(-1)?.status).toBe('FAILED');
+    const failedId = result.current.messages.at(-1)?.id;
+    act(() => result.current.retry(failedId));
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(2));
+    expect(
+      result.current.messages.filter((message) => message.role === 'USER'),
+    ).toHaveLength(1);
+    expect(JSON.parse(String(stream.fetcher.mock.calls[1]?.[1]?.body))).toEqual(
+      {
+        clientMessageId,
+        contentJson: paragraph('Keep this prompt'),
+      },
+    );
+  });
   it('adds optimistic messages, renders progressive text, and sends only the canonical request', async () => {
     const stream = mockStream();
     const refresh = vi.fn();

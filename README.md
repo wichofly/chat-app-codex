@@ -47,7 +47,7 @@ For real database integration tests, set `TEST_DATABASE_URL` to a dedicated Post
 
 ## Connect OpenRouter
 
-Set `OPENROUTER_API_KEY` in `server/.env` and restart the API after changing environment values. The existing name `OPENROUTER_KEY` is also accepted; the canonical name takes precedence. Never put either key in client environment variables. Run `npm run db:generate` and `npm run db:migrate` after pulling schema changes, including the message-storage migration.
+Set `OPENROUTER_API_KEY` in `server/.env` and restart the API after changing environment values. Keep the key server-only; never put it in client environment variables. The budget and timeout settings also belong in `server/.env`; `server/.env.example` is a template. Run `npm run db:generate` and `npm run db:migrate` after pulling schema changes, including the message-storage migration.
 
 Sign in, write a prompt, and send. Sending from `/chats` creates a persisted conversation. The React client uses `useChat` and `DefaultChatTransport`, sending only `clientMessageId` and TipTap `contentJson`; the server loads the completed history. Replies stream progressively, store the selected model, and reload from safe TipTap JSON. Stop aborts upstream generation and preserves partial text as failed. Retry reuses the original prompt and assistant row. Leaving a real conversation cancels its active request; the separate UI preview retains its original navigation behavior.
 

@@ -65,7 +65,7 @@ const environment = z.object({
 });
 
 export function readConfig(input: NodeJS.ProcessEnv = process.env) {
-  const key = input.OPENROUTER_API_KEY || input.OPENROUTER_KEY;
+  const key = input.OPENROUTER_API_KEY;
   const result = environment.safeParse({
     ...input,
     OPENROUTER_API_KEY: key && !key.startsWith('replace-') ? key : undefined,

@@ -300,17 +300,18 @@ chat-app/
 │   │   ├── modules/ai/         # prompt building, fallback, streaming, conversion
 │   │   ├── modules/sharing/    # snapshot lifecycle and public read
 │   │   └── tests/
+│   ├── .env.example
 │   └── package.json
-├── .env.example
+├── AGENTS.md
 ├── README.md
-└── CHAT_APP_SPEC.md
+└── SPEC.md
 ```
 
 Avoid importing Prisma/Better Auth server modules into the React frontend. Keep minimal API contract types close to each consumer, or add a small shared package only when duplication becomes painful.
 
 ## 11. Environment variables
 
-Example names; set real values locally/at deployment, **never** include actual API keys in Git.
+Set these server values in the private `server/.env` (copy `server/.env.example` to start); use `OPENROUTER_API_KEY` as the sole OpenRouter key variable. Set real values locally/at deployment, **never** include actual API keys in Git.
 
 ```dotenv
 # Server-only
@@ -333,6 +334,7 @@ MAX_USER_MESSAGE_CHARS=6000
 MAX_HISTORY_MESSAGES=20
 MAX_AI_OUTPUT_TOKENS=1024
 AI_FIRST_TOKEN_TIMEOUT_MS=15000
+AI_TOTAL_TIMEOUT_MS=90000
 
 # Client (non-secret)
 VITE_API_BASE_URL="http://localhost:3001/api"

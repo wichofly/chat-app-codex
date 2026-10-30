@@ -7,18 +7,17 @@ const input = {
 };
 
 describe('authentication configuration', () => {
-  it('accepts the server-only OpenRouter key alias and validates AI guardrails', () => {
+  it('accepts the server-only OpenRouter API key and validates AI guardrails', () => {
     expect(
-      readConfig({ ...input, OPENROUTER_KEY: 'test-only-key' })
+      readConfig({ ...input, OPENROUTER_API_KEY: 'test-only-key' })
         .OPENROUTER_API_KEY,
     ).toBe('test-only-key');
     expect(
       readConfig({
         ...input,
-        OPENROUTER_KEY: 'alias',
-        OPENROUTER_API_KEY: 'canonical',
+        OPENROUTER_API_KEY: 'replace-with-your-openrouter-key',
       }).OPENROUTER_API_KEY,
-    ).toBe('canonical');
+    ).toBeUndefined();
     expect(() => readConfig({ ...input, MAX_AI_OUTPUT_TOKENS: '0' })).toThrow(
       'MAX_AI_OUTPUT_TOKENS',
     );

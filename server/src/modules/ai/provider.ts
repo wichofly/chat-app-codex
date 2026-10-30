@@ -23,6 +23,7 @@ export function modelRunner(config: Config): ModelRunner {
     appUrl: config.CLIENT_ORIGIN,
   });
   return async function* ({ modelId, messages, signal }) {
+    let completed = false;
     const result = streamText({
       model: provider.chat(modelId),
       messages,
@@ -40,13 +41,21 @@ export function modelRunner(config: Config): ModelRunner {
         throw signal.reason instanceof GenerationError ? signal.reason : new GenerationError('STOPPED', 'Generation stopped.');
       if (
         part.type === 'finish' &&
-        ['error', 'content-filter', 'tool-calls'].includes(part.finishReason)
+        ['error', 'content-filter', 'tool-calls', 'length', 'interrupted'].includes(
+          part.finishReason,
+        )
       )
         throw new GenerationError(
           'INCOMPLETE',
           'This response could not be completed.',
         );
+      if (part.type === 'finish') completed = true;
     }
+    if (!completed)
+      throw new GenerationError(
+        'INCOMPLETE',
+        'This response could not be completed.',
+      );
   };
 }
 function classify(error: unknown): GenerationError {

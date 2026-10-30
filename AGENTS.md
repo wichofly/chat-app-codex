@@ -6,7 +6,7 @@ Thread is a small, multi-user, text-only AI chat application with saved conversa
 
 Before starting work:
 
-1. Read [SPEC.md](SPEC.md), the source of truth for requirements, architecture, API contracts, security rules, and acceptance criteria. If it is renamed to `SPEC.md`, read that file instead. Do not silently resolve conflicting specifications or invent requirements.
+1. Read [SPEC.md](SPEC.md), the source of truth for requirements, architecture, API contracts, security rules, and acceptance criteria. Do not silently resolve conflicting specifications or invent requirements.
 2. Read [ROADMAP.md](ROADMAP.md) for implementation priorities and the scope of the current phase, then [README.md](README.md) for setup and known limitations. Phase-specific exclusions do not remove requirements from the full MVP.
 3. Inspect the relevant source, package manifests, lockfile, configuration, tests, and applicable directory instructions. Preserve existing user changes and keep edits focused on the requested task.
 
@@ -29,6 +29,7 @@ Before starting work:
 ## Frontend development
 
 - Follow React 19 recommended patterns. Use functional components and custom hooks where they clarify reusable behavior; keep rendering pure and clean up effects, subscriptions, and timers.
+- Use the installed React 19 event types for handlers; form submissions use `SubmitEvent<HTMLFormElement>` rather than deprecated `FormEvent`.
 - Keep business logic and service state separate from presentation when beneficial. Preserve the distinction between production API adapters and preview-only behavior.
 - Use Tailwind CSS consistently with the existing theme and shared CSS conventions. Reuse accessible components and preserve current branding unless the task requests design changes.
 - Preserve the specified routes: `/login`, `/signup`, `/chats`, `/chats/:chatId`, `/shared/:token`, and the Not Found fallback. Client route guards supplement server authorization; they do not enforce ownership securely by themselves.
@@ -50,6 +51,7 @@ Before starting work:
 - Preserve the demo's disabled email verification and absent password recovery, OAuth, and email service. Keep the password-recovery limitation visible; do not describe the demo configuration as production-ready.
 - Use PostgreSQL and Prisma for durable users, chats, messages, and shares. Do not substitute MongoDB, localStorage, or preview fixtures as the production source of truth.
 - Keep credentials and API keys server-only, out of source control, browser bundles, `VITE_` variables, logs, and public snapshots. Use placeholder values in environment examples.
+- Use `OPENROUTER_API_KEY` as the sole OpenRouter key variable. Put local budget and timeout settings in the private `server/.env`; treat `server/.env.example` as a template, not the active configuration.
 - Follow the spec for Vercel AI SDK `useChat`, the installed SDK's UI Message Stream protocol, and the official OpenRouter provider. The server owns model selection and fallback; the client must not choose arbitrary models.
 - Attempt only the specified qualifying fallbacks before assistant text reaches the client. Never switch models mid-answer or blindly retry invalid input/credentials. Bound timeouts, propagate cancellation, persist the actual model/status, and reuse the original user message on retry. Keep model configuration server-side and verify availability rather than assuming free models stay available.
 - Treat allowlisted TipTap JSON (`contentJson`) as authoritative. Validate nodes and marks, derive model-facing plain text server-side, and keep frontend/server allowlists consistent. Never trust AI-produced HTML or store rendered HTML as another source of truth.
