@@ -220,6 +220,30 @@ describe('persistent streamed conversations', () => {
       await database.message.findUnique({ where: { id: assistant.id } }),
     ).toMatchObject({ status: 'COMPLETED', plainText: 'A **saved** answer.' });
   });
+  it('rejects retrying a failed turn after a newer message has been added', async () => {
+    mode = 'partial';
+    const earlierId = randomUUID();
+    await send(earlierId, 'Earlier question').expect(200);
+    mode = 'success';
+    const newerId = randomUUID();
+    await send(newerId, 'Newer question').expect(200);
+
+    await send(earlierId, 'Earlier question').expect(409);
+    const earlierUser = await database.message.findUniqueOrThrow({
+      where: {
+        chatId_clientMessageId: { chatId, clientMessageId: earlierId },
+      },
+    });
+    const earlierAssistant = await database.message.findUniqueOrThrow({
+      where: {
+        chatId_sequence: { chatId, sequence: earlierUser.sequence + 1 },
+      },
+    });
+    expect(earlierAssistant).toMatchObject({
+      status: 'FAILED',
+      plainText: 'A **saved** ',
+    });
+  });
   it('blocks simultaneous sends across separate repository instances and excludes pending history', async () => {
     const id = randomUUID();
     const attempt = await repository.begin(

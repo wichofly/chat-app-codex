@@ -65,6 +65,18 @@ export function messageRepository(database: Database, config: Config) {
               'INVALID_RETRY',
               'This response cannot be retried.',
             );
+          if (assistant) {
+            const latest = await tx.message.aggregate({
+              where: { chatId },
+              _max: { sequence: true },
+            });
+            if (latest._max.sequence !== assistant.sequence)
+              throw new HttpError(
+                409,
+                'INVALID_RETRY',
+                'Only the latest response can be retried.',
+              );
+          }
           const day = new Date();
           day.setUTCHours(0, 0, 0, 0);
           const usage = await tx.generationUsage.upsert({

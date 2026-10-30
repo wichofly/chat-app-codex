@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react';
-import { useState, type ChangeEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useApp } from '../app/providers';
 import type { ChatSummary } from '../lib/types';
@@ -21,7 +21,7 @@ export function ChatActionsDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const deleting = action === 'delete';
-  async function submit(event: ChangeEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError('');
