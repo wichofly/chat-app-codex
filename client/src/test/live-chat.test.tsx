@@ -17,7 +17,9 @@ function mockStream() {
   const emit = (chunk: UIMessageChunk) =>
     controller?.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
   const fetcher = vi.fn(
-    async (_input: RequestInfo | URL, init?: RequestInit) => {
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/messages/stop'))
+        return Response.json({ data: { stopped: true } });
       const stream = new ReadableStream<Uint8Array>({
         start(value) {
           controller = value;
@@ -103,7 +105,7 @@ describe('real chat transport', () => {
       stream.emit({
         type: 'start',
         messageId: 'assistant',
-        messageMetadata: { clientMessageId, status: 'PENDING' },
+        messageMetadata: { clientMessageId, generationId: 'generation', status: 'PENDING' },
       });
       stream.emit({ type: 'text-start', id: 'answer' });
       stream.emit({ type: 'text-delta', id: 'answer', delta: 'Progressive ' });
@@ -148,7 +150,7 @@ describe('real chat transport', () => {
       stream.emit({
         type: 'start',
         messageId: 'assistant',
-        messageMetadata: { clientMessageId, status: 'PENDING' },
+        messageMetadata: { clientMessageId, generationId: 'generation', status: 'PENDING' },
       });
       stream.emit({ type: 'text-start', id: 'answer' });
       stream.emit({ type: 'text-delta', id: 'answer', delta: 'Partial text' });
@@ -166,9 +168,11 @@ describe('real chat transport', () => {
       failureCode: 'STOPPED',
     });
     expect(stream.fetcher.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(String(stream.fetcher.mock.calls[1]?.[0])).toBe('/api/chats/chat/messages/stop');
+    expect(JSON.parse(String(stream.fetcher.mock.calls[1]?.[1]?.body))).toEqual({ clientMessageId, generationId: 'generation' });
     act(() => result.current.retry('assistant'));
-    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(String(stream.fetcher.mock.calls[1]?.[1]?.body))).toEqual(
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(3));
+    expect(JSON.parse(String(stream.fetcher.mock.calls[2]?.[1]?.body))).toEqual(
       { clientMessageId, contentJson },
     );
     expect(
@@ -190,6 +194,50 @@ describe('real chat transport', () => {
       stream.finish();
     });
     await waitFor(() => expect(result.current.busy).toBe(false));
+  });
+  it('queues an early Stop until the server identifies the active attempt', async () => {
+    const stream = mockStream();
+    const refresh = vi.fn();
+    const { result } = renderHook(() => useLiveChat(chat.id, chat, true, refresh));
+    const clientMessageId = crypto.randomUUID();
+    act(() => { result.current.send(paragraph('Keep this early prompt'), clientMessageId); });
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(1));
+    act(() => result.current.stop());
+    expect(stream.fetcher.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+    expect(result.current.busy).toBe(true);
+    act(() => { expect(result.current.send(paragraph('Blocked'))).toBe(false); });
+    await act(async () => {
+      stream.emit({ type: 'start', messageId: 'assistant', messageMetadata: { clientMessageId, generationId: 'generation', status: 'PENDING' } });
+      stream.emit({ type: 'text-start', id: 'answer' });
+    });
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(stream.fetcher.mock.calls[0]?.[1]?.signal?.aborted).toBe(true));
+    expect(result.current.messages.filter(message => message.role === 'USER')).toHaveLength(1);
+  });
+  it('keeps reading when the explicit Stop request fails and exposes a recoverable error', async () => {
+    const stream = mockStream();
+    const refresh = vi.fn();
+    const { result } = renderHook(() => useLiveChat(chat.id, chat, true, refresh));
+    const clientMessageId = crypto.randomUUID();
+    act(() => { result.current.send(paragraph('A question'), clientMessageId); });
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      stream.emit({ type: 'start', messageId: 'assistant', messageMetadata: { clientMessageId, generationId: 'generation', status: 'PENDING' } });
+      stream.emit({ type: 'text-start', id: 'answer' });
+    });
+    stream.fetcher.mockResolvedValueOnce(Response.json({ error: { message: 'Unable to stop. Try again.' } }, { status: 503 }));
+    act(() => result.current.stop());
+    await waitFor(() => expect(result.current.error).toBe('Unable to stop. Try again.'));
+    expect(stream.fetcher.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+    expect(result.current.busy).toBe(true);
+    await act(async () => {
+      stream.emit({ type: 'text-delta', id: 'answer', delta: 'Completed normally' });
+      stream.emit({ type: 'text-end', id: 'answer' });
+      stream.emit({ type: 'finish', messageMetadata: { clientMessageId, status: 'COMPLETED' } });
+      stream.finish();
+    });
+    await waitFor(() => expect(result.current.busy).toBe(false));
+    expect(result.current.messages.at(-1)).toMatchObject({ status: 'COMPLETED', plainText: 'Completed normally' });
   });
   it('hydrates saved rich text and cancels generation on unmount', async () => {
     const stream = mockStream();

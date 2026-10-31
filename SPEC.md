@@ -211,6 +211,7 @@ Base path `/api`. JSON routes accept `Content-Type: application/json` except str
 | `PATCH` | `/api/chats/:chatId` | Owner | Rename: `{ "title": "..." }` |
 | `DELETE` | `/api/chats/:chatId` | Owner | Delete own chat and children |
 | `POST` | `/api/chats/:chatId/messages/stream` | Owner | Add user message, stream AI answer |
+| `POST` | `/api/chats/:chatId/messages/stop` | Owner | Cancel the active attempt using `{ clientMessageId, generationId }` |
 | `GET` | `/api/chats/:chatId/share` | Owner | Current sharing state and URL if active |
 | `POST` | `/api/chats/:chatId/share` | Owner | Create/refresh snapshot; rotate token, return URL |
 | `DELETE` | `/api/chats/:chatId/share` | Owner | Revoke share URL |
@@ -236,6 +237,8 @@ Base path `/api`. JSON routes accept `Content-Type: application/json` except str
 **Streaming response:** use the documented **AI SDK UI Message Stream** protocol for the installed SDK version, not a custom ad-hoc JSON stream, so that `useChat` can consume it. Configure `DefaultChatTransport` / request preparation or a small compatible transport adapter to submit the chat ID and TipTap JSON rather than trusting full client-supplied conversation history. For Express use the SDK's Node response piping helper. Include completion/failure state and model metadata in a version-compatible manner.
 
 **Server is authoritative:** it loads existing history from PostgreSQL based on the authenticated user and chat ID. It must **not** accept an arbitrary list of historical system/user/assistant messages from the browser as trusted context.
+
+**Explicit Stop through hosting proxies:** stream metadata includes a server-generated `generationId`. Queue an early Stop until that metadata arrives, then send the owned Stop request before closing the local SDK stream. The response is `{ data: { stopped: boolean } }`; `true` acknowledges cancellation after partial content/status persistence, while `false` means the attempt is no longer active or the IDs do not match. A delayed Stop for an earlier generation must not cancel its retry. The demo runs one API instance, with an in-process cancellation registry and database-backed concurrency/idempotency guards. Add distributed cancellation before scaling beyond one process. Browser disconnects alone are insufficient through a buffering or decoupled proxy; all generation remains bounded by the server timeout.
 
 **Status semantics:**
 

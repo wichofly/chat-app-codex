@@ -50,6 +50,8 @@ The process binds to `0.0.0.0` and uses Render's supplied `PORT`; do not copy th
 
 Proxy trust stays disabled locally (`TRUST_PROXY_HOPS=0`). Verify the actual ingress chain before changing the hosted value or adding another proxy. Trusting an arbitrary number of hops can let clients spoof rate-limit identities. The auth IP limiter uses process memory, so this Blueprint stays at one instance; review distributed rate limiting before scaling it.
 
+Vercel's external proxy does not reliably propagate browser aborts to the API. The Stop button sends an authenticated request bound to the server's generation ID and waits for partial-response persistence before stopping local reading. Keep the API at one instance: provider cancellation also uses a process-local registry. Database guards still enforce message ordering/concurrency. Scaling requires distributed cancellation and rate limiting. Closing a tab or losing a connection can leave generation running behind the proxy until completion or the bounded server timeout.
+
 Automatic Render deploys are initially off to coordinate schema/API/client releases. Deploy API changes first, verify them, then publish the frontend. Export important data before migrations; free Postgres has no automatic backups. App rollbacks do not reverse database migrations; schema changes must remain compatible with any version that can still run. Do not use `db push`, schema resets, or destructive automatic down-migrations.
 
 ## Deploy the Vercel frontend

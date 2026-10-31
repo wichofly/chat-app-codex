@@ -436,4 +436,72 @@ describe('persistent streamed conversations', () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
+  it('explicitly stops a connected stream, binds Stop to its attempt, and safely retries', async () => {
+    mode = 'waiting';
+    const isolated = await database.chat.create({ data: { userId: ownerId, title: 'Proxy Stop test' } });
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Missing test address');
+    const port = address.port;
+    const id = randomUUID();
+    const stopPath = `/api/chats/${isolated.id}/messages/stop`;
+    const payload = { clientMessageId: id, contentJson: paragraph('Stop through a proxy') };
+    async function openStream() {
+      const response = await fetch(`http://127.0.0.1:${port}/api/chats/${isolated.id}/messages/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: config.CLIENT_ORIGIN, Cookie: cookie },
+        body: JSON.stringify(payload),
+      });
+      expect(response.status).toBe(200);
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Missing stream');
+      let text = '';
+      while (!text.includes('text-delta')) {
+        const chunk = await reader.read();
+        if (chunk.done) throw new Error('Stream ended early');
+        text += new TextDecoder().decode(chunk.value);
+      }
+      const assistant = await database.message.findFirstOrThrow({ where: { chatId: isolated.id, role: 'ASSISTANT' } });
+      expect(assistant.generationId).toBeTruthy();
+      expect(text).toContain(`"generationId":"${assistant.generationId}"`);
+      return { reader, assistant };
+    }
+    try {
+      const first = await openStream();
+      const body = { clientMessageId: id, generationId: first.assistant.generationId };
+      await request(app).post(stopPath).send(body).expect(401);
+      await agent.post(stopPath).set('Origin', 'https://foreign.invalid').send(body).expect(403);
+      await agent.post(`/api/chats/${randomUUID()}/messages/stop`).set('Origin', config.CLIENT_ORIGIN).send(body).expect(404);
+      await agent.post(stopPath).set('Origin', config.CLIENT_ORIGIN).send({ ...body, generationId: 'invalid' }).expect(400);
+      const wrongMessage = await agent.post(stopPath).set('Origin', config.CLIENT_ORIGIN).send({ ...body, clientMessageId: randomUUID() }).expect(200);
+      expect(wrongMessage.body.data.stopped).toBe(false);
+      const stopped = await agent.post(stopPath).set('Origin', config.CLIENT_ORIGIN).send(body).expect(200);
+      expect(stopped.body.data.stopped).toBe(true);
+      let final = '';
+      for (;;) {
+        const chunk = await first.reader.read();
+        if (chunk.done) break;
+        final += new TextDecoder().decode(chunk.value);
+      }
+      expect(final).toContain('Generation stopped.');
+      expect(await database.message.findUnique({ where: { id: first.assistant.id } })).toMatchObject({ status: 'FAILED', failureCode: 'STOPPED', plainText: 'A **saved** ' });
+      const retry = await openStream();
+      expect(retry.assistant.id).toBe(first.assistant.id);
+      expect(retry.assistant.generationId).not.toBe(first.assistant.generationId);
+      const stale = await agent.post(stopPath).set('Origin', config.CLIENT_ORIGIN).send(body).expect(200);
+      expect(stale.body.data.stopped).toBe(false);
+      expect(await database.message.findUnique({ where: { id: retry.assistant.id } })).toMatchObject({ status: 'PENDING' });
+      await agent.post(stopPath).set('Origin', config.CLIENT_ORIGIN).send({ clientMessageId: id, generationId: retry.assistant.generationId }).expect(200);
+      await retry.reader.cancel();
+      mode = 'success';
+      await agent.post(`/api/chats/${isolated.id}/messages/stream`).set('Origin', config.CLIENT_ORIGIN).send(payload).expect(200);
+      expect(await database.message.count({ where: { chatId: isolated.id } })).toBe(2);
+      expect(await database.message.findUnique({ where: { id: first.assistant.id } })).toMatchObject({ status: 'COMPLETED' });
+    } finally {
+      mode = 'success';
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
 });

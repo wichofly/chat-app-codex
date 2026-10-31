@@ -19,13 +19,24 @@ export function streamHandler(
   injectedRunner?: ModelRunner,
 ) {
   const repository = messageRepository(database, config);
+  // This deployment runs one API instance. Database guards still own concurrency;
+  // this registry only lets an explicit Stop reach the active provider signal.
+  const active = new Map<
+    string,
+    {
+      chatId: string;
+      clientMessageId: string;
+      cancellation: AbortController;
+      finished: Promise<boolean>;
+    }
+  >();
   const payload = z
     .object({
       clientMessageId: z.uuid(),
       contentJson: documentSchema(config.MAX_USER_MESSAGE_CHARS),
     })
     .strict();
-  return async (
+  const send = async (
     request: Request,
     response: Response,
     chatId: string,
@@ -45,6 +56,20 @@ export function streamHandler(
       body.contentJson,
     );
     const cancellation = new AbortController();
+    let complete: (stopped: boolean) => void = () => {};
+    const finished = new Promise<boolean>((resolve) => {
+      complete = resolve;
+    });
+    let persistedStop = false;
+    const generationId = attempt.assistant.generationId;
+    if (!attempt.replay && generationId) {
+      active.set(generationId, {
+        chatId,
+        clientMessageId: body.clientMessageId,
+        cancellation,
+        finished,
+      });
+    }
     const disconnect = () => {
       if (!response.writableFinished) cancellation.abort();
     };
@@ -69,6 +94,7 @@ export function streamHandler(
       failureCode?: string,
     ) => ({
       clientMessageId: body.clientMessageId,
+      generationId,
       userMessageId: attempt.user?.id,
       modelId,
       status,
@@ -76,13 +102,13 @@ export function streamHandler(
     });
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        writer.write({
-          type: 'start',
-          messageId: assistant.id,
-          messageMetadata: metadata('PENDING'),
-        });
-        writer.write({ type: 'text-start', id: assistant.id });
         try {
+          writer.write({
+            type: 'start',
+            messageId: assistant.id,
+            messageMetadata: metadata('PENDING'),
+          });
+          writer.write({ type: 'text-start', id: assistant.id });
           if (attempt.replay) {
             text = assistant.plainText;
             modelId = assistant.modelId;
@@ -137,14 +163,20 @@ export function streamHandler(
                   'This response could not be completed. Please retry.',
                 );
           try {
-            if (!attempt.replay)
-              await repository.finish(assistant.id, assistant.generationId, {
-                status: 'FAILED',
-                contentJson: paragraph(text),
-                plainText: text,
-                modelId,
-                failureCode: failure.code,
-              });
+            if (!attempt.replay) {
+              const persisted = await repository.finish(
+                assistant.id,
+                assistant.generationId,
+                {
+                  status: 'FAILED',
+                  contentJson: paragraph(text),
+                  plainText: text,
+                  modelId,
+                  failureCode: failure.code,
+                },
+              );
+              persistedStop = persisted && failure.code === 'STOPPED';
+            }
           } catch {
             console.error('Could not persist AI failure', {
               messageId: assistant.id,
@@ -165,10 +197,29 @@ export function streamHandler(
         } finally {
           clearTimeout(timeout);
           response.off('close', disconnect);
+          if (!attempt.replay && generationId) active.delete(generationId);
+          complete(persistedStop);
         }
       },
       onError: () => 'This response could not be completed. Please retry.',
     });
     pipeUIMessageStreamToResponse({ response, stream });
+  };
+  return {
+    send,
+    async stop(chatId: string, clientMessageId: string, generationId: string) {
+      const generation = active.get(generationId);
+      if (
+        !generation ||
+        generation.chatId !== chatId ||
+        generation.clientMessageId !== clientMessageId
+      )
+        return false;
+      generation.cancellation.abort(
+        new GenerationError('STOPPED', 'Generation stopped.'),
+      );
+      // Acknowledge only after partial content/status is saved, so Retry is safe.
+      return generation.finished;
+    },
   };
 }

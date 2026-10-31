@@ -99,7 +99,20 @@ export function chatRoutes(
   router.post('/:chatId/messages/stream', async (request, response) => {
     const id = chatId.parse(request.params.chatId);
     await service.get(id, userId(response));
-    await stream(request, response, id, userId(response));
+    await stream.send(request, response, id, userId(response));
+  });
+  router.post('/:chatId/messages/stop', async (request, response) => {
+    const id = chatId.parse(request.params.chatId);
+    await service.get(id, userId(response));
+    const body = z
+      .object({ clientMessageId: z.uuid(), generationId: z.uuid() })
+      .strict()
+      .parse(request.body);
+    response.json({
+      data: {
+        stopped: await stream.stop(id, body.clientMessageId, body.generationId),
+      },
+    });
   });
   for (const feature of ['share']) {
     router.all(`/:chatId/${feature}`, async (request, _response) => {

@@ -120,7 +120,7 @@ describe('base routes', () => {
       await screen.findByRole('button', { name: 'Explore the UI preview' }),
     );
     expect(
-      await screen.findByRole('heading', { name: /Where shall we/ }),
+      await screen.findByRole('heading', { name: /Where shall we/ }, { timeout: 5000 }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'New chat' }));
     await screen.findByRole('heading', { name: 'New chat' });

@@ -1,16 +1,17 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { baseUrl } from '../../lib/api';
+import { baseUrl, request } from '../../lib/api';
 import {
-    paragraph,
-    type Chat,
-    type Message,
-    type RichDocument,
+  paragraph,
+  type Chat,
+  type Message,
+  type RichDocument,
 } from '../../lib/types';
 
 type Metadata = {
   clientMessageId?: string;
+  generationId?: string | null;
   modelId?: string | null;
   status?: Message['status'];
   failureCode?: string | null;
@@ -48,6 +49,8 @@ export function useLiveChat(
   const sending = useRef(false);
   const lastSend = useRef<string | null>(null);
   const [stopped, setStopped] = useState<string | null>(null);
+  const [stopRequested, setStopRequested] = useState(false);
+  const [stopError, setStopError] = useState<string>();
   const transport = useMemo(
     () =>
       new DefaultChatTransport<LiveMessage>({
@@ -84,12 +87,55 @@ export function useLiveChat(
     transport,
     onFinish: refresh,
   });
-  const busy = sdk.status === 'submitted' || sdk.status === 'streaming';
+  const streaming = sdk.status === 'submitted' || sdk.status === 'streaming';
+  const busy = streaming || stopRequested;
+  const latest = sdk.messages.at(-1);
+  const generationId =
+    latest?.role === 'assistant' ? latest.metadata?.generationId : undefined;
+  useEffect(() => {
+    if (!stopRequested || !chatId || !generationId || !lastSend.current) return;
+    let disposed = false;
+    const clientMessageId = lastSend.current;
+    void request<{ stopped: boolean }>(
+      `/chats/${encodeURIComponent(chatId)}/messages/stop`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ clientMessageId, generationId }),
+      },
+    )
+      .then(async (result) => {
+        if (disposed) return;
+        if (!result.stopped) setStopped(null); // Completion may win the race with Stop.
+        await sdk.stop();
+        refresh();
+      })
+      .catch((error: unknown) => {
+        if (!disposed) {
+          setStopped(null);
+          setStopError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to stop the response. Try again.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!disposed) setStopRequested(false);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [stopRequested, chatId, generationId, sdk.stop, refresh]);
+  useEffect(() => {
+    if (!streaming && stopRequested) setStopRequested(false);
+  }, [streaming, stopRequested]);
   useEffect(() => {
     documents.current.clear();
     hydrated.current = null;
     lastSend.current = null;
     sending.current = false;
+    setStopRequested(false);
+    setStopError(undefined);
     return () => {
       void sdk.stop();
     };
@@ -168,6 +214,7 @@ export function useLiveChat(
     sending.current = true;
     lastSend.current = clientMessageId;
     setStopped(null);
+    setStopError(undefined);
     sdk.clearError();
     documents.current.set(clientMessageId, contentJson);
     void sdk
@@ -199,6 +246,7 @@ export function useLiveChat(
     sending.current = true;
     lastSend.current = clientMessageId;
     setStopped(null);
+    setStopError(undefined);
     sdk.clearError();
     const exists = sdk.messages.some((message) => message.id === messageId);
     if (messageId) documents.current.delete(messageId);
@@ -215,12 +263,16 @@ export function useLiveChat(
     messages:
       enabled && hydrated.current ? messages : (initial?.messages ?? []),
     busy,
-    error: sdk.error?.message,
+    error: stopError ?? sdk.error?.message,
     send,
     retry,
     stop: () => {
+      if (!streaming || stopRequested) return;
       setStopped(lastSend.current);
-      void sdk.stop().finally(refresh);
+      setStopError(undefined);
+      // Queue an early Stop until the server announces this attempt's generation ID.
+      // Keep reading until the explicit request reaches the server through proxies.
+      setStopRequested(true);
     },
   };
 }
