@@ -20,12 +20,20 @@ export function clientIp(config: Config): RequestHandler {
     const address = trusted
       ? request.get('x-real-ip')?.trim()
       : request.ip || request.socket.remoteAddress;
-    if (!address || !isIP(address))
+    if (!address || !isIP(address)) {
+      console.warn('Invalid client IP metadata', {
+        source: trusted ? 'verified-proxy' : 'connection',
+        present: !!address,
+        valueCount: address ? address.split(',').length : 0,
+        quoted: address?.startsWith('"') ?? false,
+        bracketed: address?.startsWith('[') ?? false,
+      });
       throw new HttpError(
         400,
         'INVALID_CLIENT_IP',
         'Unable to determine the request address.',
       );
+    }
     request.headers[AUTH_CLIENT_IP_HEADER] = address;
     next();
   };
