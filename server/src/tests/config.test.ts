@@ -54,6 +54,11 @@ describe('authentication configuration', () => {
     for (const value of ['true', '-1', '1.5', '6'])
       expect(() => readConfig({ ...input, TRUST_PROXY_HOPS: value })).toThrow('TRUST_PROXY_HOPS');
   });
+  it('requires a strong shared proxy secret when one is configured', () => {
+    expect(readConfig(input).TRUSTED_PROXY_SECRET).toBeUndefined();
+    expect(() => readConfig({ ...input, TRUSTED_PROXY_SECRET: 'short' })).toThrow('TRUSTED_PROXY_SECRET');
+    expect(readConfig({ ...input, TRUSTED_PROXY_SECRET: 'test-only-proxy-secret-with-32-characters' }).TRUSTED_PROXY_SECRET).toBe('test-only-proxy-secret-with-32-characters');
+  });
   it('requires HTTPS for production cookies', () => {
     expect(() => readConfig({ ...input, NODE_ENV: 'production' })).toThrow(
       'HTTPS',

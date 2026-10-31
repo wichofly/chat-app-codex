@@ -18,7 +18,14 @@ export type Message = {
   clientMessageId?: string | null;
   failureCode?: string | null;
 };
-export type Chat = ChatSummary & { messages: Message[] };
+export type ActiveGeneration = {
+  clientMessageId: string;
+  generationId: string;
+};
+export type Chat = ChatSummary & {
+  messages: Message[];
+  activeGeneration?: ActiveGeneration | null;
+};
 export type Snapshot = {
   title: string;
   messages: Pick<Message, 'role' | 'contentJson'>[];

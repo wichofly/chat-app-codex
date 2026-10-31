@@ -49,7 +49,11 @@ export function useLiveChat(
   const sending = useRef(false);
   const lastSend = useRef<string | null>(null);
   const [stopped, setStopped] = useState<string | null>(null);
-  const [stopRequested, setStopRequested] = useState(false);
+  const [stopRequest, setStopRequest] = useState<{
+    clientMessageId: string;
+    generationId: string | null;
+  } | null>(null);
+  const stopRequested = stopRequest !== null;
   const [stopError, setStopError] = useState<string>();
   const transport = useMemo(
     () =>
@@ -88,19 +92,28 @@ export function useLiveChat(
     onFinish: refresh,
   });
   const streaming = sdk.status === 'submitted' || sdk.status === 'streaming';
-  const busy = streaming || stopRequested;
+  const localBusy = streaming || stopRequested;
+  const busy =
+    localBusy || !!initial?.messages.some((message) => message.status === 'PENDING');
   const latest = sdk.messages.at(-1);
   const generationId =
-    latest?.role === 'assistant' ? latest.metadata?.generationId : undefined;
+    stopRequest?.generationId ??
+    (latest?.role === 'assistant' &&
+    latest.metadata?.clientMessageId === stopRequest?.clientMessageId
+      ? latest.metadata?.generationId
+      : undefined);
+  const stopClientMessageId = stopRequest?.clientMessageId;
   useEffect(() => {
-    if (!stopRequested || !chatId || !generationId || !lastSend.current) return;
+    if (!stopClientMessageId || !chatId || !generationId) return;
     let disposed = false;
-    const clientMessageId = lastSend.current;
     void request<{ stopped: boolean }>(
       `/chats/${encodeURIComponent(chatId)}/messages/stop`,
       {
         method: 'POST',
-        body: JSON.stringify({ clientMessageId, generationId }),
+        body: JSON.stringify({
+          clientMessageId: stopClientMessageId,
+          generationId,
+        }),
       },
     )
       .then(async (result) => {
@@ -120,45 +133,45 @@ export function useLiveChat(
         }
       })
       .finally(() => {
-        if (!disposed) setStopRequested(false);
+        if (!disposed) setStopRequest(null);
       });
     return () => {
       disposed = true;
     };
-  }, [stopRequested, chatId, generationId, sdk.stop, refresh]);
+  }, [stopClientMessageId, chatId, generationId, sdk.stop, refresh]);
   useEffect(() => {
-    if (!streaming && stopRequested) setStopRequested(false);
-  }, [streaming, stopRequested]);
+    if (!streaming && stopRequested && !generationId) setStopRequest(null);
+  }, [streaming, stopRequested, generationId]);
   useEffect(() => {
     documents.current.clear();
     hydrated.current = null;
     lastSend.current = null;
     sending.current = false;
-    setStopRequested(false);
+    setStopRequest(null);
     setStopError(undefined);
     return () => {
       void sdk.stop();
     };
   }, [chatId]);
   useEffect(() => {
-    if (!enabled || !initial || initial === hydrated.current || busy) return;
+    if (!enabled || !initial || initial === hydrated.current || localBusy) return;
     hydrated.current = initial;
     for (const message of initial.messages)
       if (message.contentJson)
         documents.current.set(message.id, message.contentJson);
     sdk.setMessages(initial.messages.map(toUI));
-  }, [initial, enabled, busy, sdk.setMessages]);
+  }, [initial, enabled, localBusy, sdk.setMessages]);
   useEffect(() => {
     if (
       !enabled ||
-      busy ||
+      localBusy ||
       !initial?.messages.some((message) => message.status === 'PENDING')
     )
       return;
     // Stop/disconnect persistence can finish just after the aborted fetch. Reconcile until finalized.
     const timer = setTimeout(refresh, 500);
     return () => clearTimeout(timer);
-  }, [initial, enabled, busy, refresh]);
+  }, [initial, enabled, localBusy, refresh]);
 
   const messages: Message[] = sdk.messages.map((message, index) => {
     const text = message.parts
@@ -267,12 +280,22 @@ export function useLiveChat(
     send,
     retry,
     stop: () => {
-      if (!streaming || stopRequested) return;
-      setStopped(lastSend.current);
+      if (stopRequested || !enabled) return;
+      const clientMessageId = streaming
+        ? lastSend.current
+        : initial?.activeGeneration?.clientMessageId;
+      if (!clientMessageId) return;
+      const targetGenerationId = streaming
+        ? latest?.role === 'assistant' &&
+          latest.metadata?.clientMessageId === clientMessageId
+          ? latest.metadata.generationId
+          : null
+        : initial?.activeGeneration?.generationId;
+      setStopped(clientMessageId);
       setStopError(undefined);
       // Queue an early Stop until the server announces this attempt's generation ID.
       // Keep reading until the explicit request reaches the server through proxies.
-      setStopRequested(true);
+      setStopRequest({ clientMessageId, generationId: targetGenerationId ?? null });
     },
   };
 }

@@ -1,12 +1,13 @@
 import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
 import express from 'express';
-import { rateLimit } from 'express-rate-limit';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import type { Config } from './config.js';
 import type { Auth } from './lib/auth.js';
 import type { Database } from './lib/prisma.js';
 import { createReadinessProbe } from './lib/readiness.js';
 import { errorHandler, HttpError } from './middleware/errors.js';
+import { AUTH_CLIENT_IP_HEADER, clientIp } from './middleware/client-ip.js';
 import type { ModelRunner } from './modules/ai/provider.js';
 import { chatRoutes } from './modules/chats/routes.js';
 
@@ -33,6 +34,7 @@ export function createApp({
     response.set('Cache-Control', 'no-store');
     next();
   });
+  app.use('/api', clientIp(config));
   app.use(
     cors({
       origin: (origin, callback) => {
@@ -58,6 +60,7 @@ export function createApp({
       windowMs: 15 * 60 * 1000,
       limit: 30,
       skip: (request) => request.method !== 'POST',
+      keyGenerator: (request) => ipKeyGenerator(request.get(AUTH_CLIENT_IP_HEADER) || ''),
       standardHeaders: 'draft-8',
       legacyHeaders: false,
       message: {

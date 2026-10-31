@@ -3,6 +3,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import 'dotenv/config';
 import type { Config } from '../config.js';
 import type { Database } from './prisma.js';
+import { AUTH_CLIENT_IP_HEADER } from '../middleware/client-ip.js';
 
 export function createAuth(database: Database, config: Config) {
   return betterAuth({
@@ -27,6 +28,7 @@ export function createAuth(database: Database, config: Config) {
       cookieCache: { enabled: false },
     },
     advanced: {
+      ipAddress: { ipAddressHeaders: [AUTH_CLIENT_IP_HEADER] },
       useSecureCookies: config.NODE_ENV === 'production',
       defaultCookieAttributes: {
         httpOnly: true,

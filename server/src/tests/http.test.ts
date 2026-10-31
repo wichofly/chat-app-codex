@@ -53,6 +53,43 @@ describe('HTTP authentication boundary without a database', () => {
     expect(sameClient.headers.ratelimit).toMatch(/\br=28\b/);
     expect(otherClient.headers.ratelimit).toMatch(/\br=29\b/);
   });
+  it('separates verified visitors behind Vercel while ignoring forged visitor headers', async () => {
+    const proxySecret = 'test-only-proxy-secret-with-32-characters';
+    const proxyConfig = { ...config, TRUST_PROXY_HOPS: 1, TRUSTED_PROXY_SECRET: proxySecret };
+    const proxied = createApp({ config: proxyConfig, auth: createAuth(database, proxyConfig), database });
+    const attempt = (visitor: string, secret?: string) => {
+      const sending = request(proxied)
+        .post('/api/auth/sign-in/email')
+        .set('Origin', config.CLIENT_ORIGIN)
+        .set('X-Forwarded-For', '203.0.113.90, 198.51.100.2')
+        .set('X-Real-IP', visitor)
+        .set('X-Thread-Client-IP', visitor);
+      if (secret) sending.set('X-Thread-Proxy-Secret', secret);
+      return sending.send({});
+    };
+    const first = await attempt('192.0.2.10', proxySecret);
+    const other = await attempt('192.0.2.11', proxySecret);
+    const same = await attempt('192.0.2.10', proxySecret);
+    expect(first.headers.ratelimit).toMatch(/\br=29\b/);
+    expect(other.headers.ratelimit).toMatch(/\br=29\b/);
+    expect(same.headers.ratelimit).toMatch(/\br=28\b/);
+    const forged = await attempt('192.0.2.20', 'wrong-secret');
+    const forgedAgain = await attempt('192.0.2.21');
+    expect(forged.headers.ratelimit).toMatch(/\br=29\b/);
+    expect(forgedAgain.headers.ratelimit).toMatch(/\br=28\b/);
+    // Better Auth must receive the same normalized identity as Express, not a shared fallback.
+    let lastStatus = 0;
+    for (let index = 0; index < 11; index++) lastStatus = (await attempt('192.0.2.30', proxySecret)).status;
+    expect(lastStatus).toBe(429);
+    expect((await attempt('192.0.2.31', proxySecret)).status).not.toBe(429);
+    const ipv6 = await attempt('2001:db8:1::1', proxySecret);
+    const sameSubnet = await attempt('2001:db8:1::2', proxySecret);
+    const differentSubnet = await attempt('2001:db8:200::1', proxySecret);
+    expect(ipv6.headers.ratelimit).toMatch(/\br=29\b/);
+    expect(sameSubnet.headers.ratelimit).toMatch(/\br=28\b/);
+    expect(differentSubnet.headers.ratelimit).toMatch(/\br=29\b/);
+    await attempt('192.0.2.10, 192.0.2.11', proxySecret).expect(400);
+  });
   it.each(['get', 'post', 'patch', 'delete'] as const)(
     'rejects unauthenticated %s requests before accessing storage',
     async (method) => {

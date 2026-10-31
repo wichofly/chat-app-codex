@@ -203,7 +203,11 @@ export function streamHandler(
       },
       onError: () => 'This response could not be completed. Please retry.',
     });
-    pipeUIMessageStreamToResponse({ response, stream });
+    pipeUIMessageStreamToResponse({
+      response,
+      stream,
+      headers: { 'Cache-Control': 'no-store' },
+    });
   };
   return {
     send,

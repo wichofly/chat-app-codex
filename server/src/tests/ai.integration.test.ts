@@ -178,6 +178,7 @@ describe('persistent streamed conversations', () => {
     const id = randomUUID();
     const result = await send(id).expect(200);
     expect(result.headers['x-vercel-ai-ui-message-stream']).toBe('v1');
+    expect(result.headers['cache-control']).toBe('no-store');
     expect(result.text).toContain('text-delta');
     expect(result.text).toContain('[DONE]');
     const saved = await agent.get(`/api/chats/${chatId}`).expect(200);
@@ -200,6 +201,7 @@ describe('persistent streamed conversations', () => {
     mode = 'partial';
     const id = randomUUID();
     const failed = await send(id).expect(200);
+    expect(failed.headers['cache-control']).toBe('no-store');
     expect(failed.text).toContain('Interrupted.');
     const original = await database.message.findUniqueOrThrow({
       where: { chatId_clientMessageId: { chatId, clientMessageId: id } },
@@ -405,6 +407,7 @@ describe('persistent streamed conversations', () => {
         },
       );
       expect(response.status).toBe(200);
+      expect(response.headers.get('cache-control')).toBe('no-store');
       const reader = response.body?.getReader();
       if (!reader) throw new Error('Missing response stream');
       let data = '';
@@ -470,6 +473,9 @@ describe('persistent streamed conversations', () => {
     try {
       const first = await openStream();
       const body = { clientMessageId: id, generationId: first.assistant.generationId };
+      const restored = await agent.get(`/api/chats/${isolated.id}`).expect(200);
+      expect(restored.body.data.activeGeneration).toEqual(body);
+      expect(restored.body.data.messages.every((message: Record<string, unknown>) => !('generationId' in message))).toBe(true);
       await request(app).post(stopPath).send(body).expect(401);
       await agent.post(stopPath).set('Origin', 'https://foreign.invalid').send(body).expect(403);
       await agent.post(`/api/chats/${randomUUID()}/messages/stop`).set('Origin', config.CLIENT_ORIGIN).send(body).expect(404);
@@ -478,6 +484,8 @@ describe('persistent streamed conversations', () => {
       expect(wrongMessage.body.data.stopped).toBe(false);
       const stopped = await agent.post(stopPath).set('Origin', config.CLIENT_ORIGIN).send(body).expect(200);
       expect(stopped.body.data.stopped).toBe(true);
+      const finalized = await agent.get(`/api/chats/${isolated.id}`).expect(200);
+      expect(finalized.body.data.activeGeneration).toBeNull();
       let final = '';
       for (;;) {
         const chunk = await first.reader.read();

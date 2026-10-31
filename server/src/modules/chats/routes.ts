@@ -77,10 +77,33 @@ export function chatRoutes(
         status: true,
         modelId: true,
         clientMessageId: true,
+        generationId: true,
         failureCode: true,
       },
     });
-    response.json({ data: { ...chat, messages } });
+    const pendingIndex = messages.findIndex(
+      (message) => message.role === 'ASSISTANT' && message.status === 'PENDING',
+    );
+    const pending = messages[pendingIndex];
+    const original = messages[pendingIndex - 1];
+    const activeGeneration =
+      pending?.generationId &&
+      original?.role === 'USER' &&
+      original.clientMessageId
+        ? {
+            generationId: pending.generationId,
+            clientMessageId: original.clientMessageId,
+          }
+        : null;
+    response.json({
+      data: {
+        ...chat,
+        messages: messages.map(
+          ({ generationId: _generationId, ...message }) => message,
+        ),
+        activeGeneration,
+      },
+    });
   });
   router.patch('/:chatId', async (request, response) => {
     const data = z.object({ title }).strict().parse(request.body);

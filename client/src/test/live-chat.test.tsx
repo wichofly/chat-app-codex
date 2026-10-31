@@ -46,6 +46,41 @@ function mockStream() {
   return { fetcher, emit, finish };
 }
 describe('real chat transport', () => {
+  it('stops a restored pending generation without an active SDK stream and retries its prompt', async () => {
+    const stream = mockStream();
+    const refresh = vi.fn();
+    const clientMessageId = crypto.randomUUID();
+    const saved: Chat = {
+      ...chat,
+      activeGeneration: { clientMessageId, generationId: 'restored-generation' },
+      messages: [
+        { id: 'user', role: 'USER', status: 'COMPLETED', contentJson: paragraph('Restored prompt'), plainText: 'Restored prompt', clientMessageId },
+        { id: 'assistant', role: 'ASSISTANT', status: 'PENDING', contentJson: null, plainText: '', clientMessageId: null },
+      ],
+    };
+    const { result, rerender } = renderHook(({ initial }) => useLiveChat(chat.id, initial, true, refresh), { initialProps: { initial: saved } });
+    await waitFor(() => expect(result.current.messages).toHaveLength(2));
+    expect(result.current.busy).toBe(true);
+    act(() => { expect(result.current.send(paragraph('Concurrent send'))).toBe(false); result.current.stop(); });
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(stream.fetcher.mock.calls[0]?.[1]?.body))).toEqual(saved.activeGeneration);
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    const failed: Chat = { ...saved, activeGeneration: null, messages: [saved.messages[0], { ...saved.messages[1], status: 'FAILED', failureCode: 'STOPPED', contentJson: paragraph('Partial'), plainText: 'Partial' }] };
+    rerender({ initial: failed });
+    await waitFor(() => expect(result.current.busy).toBe(false));
+    act(() => result.current.retry('assistant'));
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(stream.fetcher.mock.calls[1]?.[1]?.body))).toEqual({ clientMessageId, contentJson: paragraph('Restored prompt') });
+    expect(result.current.messages.filter(message => message.role === 'USER')).toHaveLength(1);
+  });
+  it('continues polling a restored pending generation while sends stay blocked', async () => {
+    mockStream();
+    const refresh = vi.fn();
+    const pending: Chat = { ...chat, messages: [{ id: 'pending', role: 'ASSISTANT', status: 'PENDING', plainText: '', contentJson: null }] };
+    const { result } = renderHook(() => useLiveChat(chat.id, pending, true, refresh));
+    expect(result.current.busy).toBe(true);
+    await waitFor(() => expect(refresh).toHaveBeenCalled(), { timeout: 1500 });
+  });
   it('retries a rejected request without duplicating the optimistic prompt', async () => {
     const stream = mockStream();
     stream.fetcher.mockResolvedValueOnce(

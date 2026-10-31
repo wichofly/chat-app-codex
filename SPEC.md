@@ -240,6 +240,8 @@ Base path `/api`. JSON routes accept `Content-Type: application/json` except str
 
 **Explicit Stop through hosting proxies:** stream metadata includes a server-generated `generationId`. Queue an early Stop until that metadata arrives, then send the owned Stop request before closing the local SDK stream. The response is `{ data: { stopped: boolean } }`; `true` acknowledges cancellation after partial content/status persistence, while `false` means the attempt is no longer active or the IDs do not match. A delayed Stop for an earlier generation must not cancel its retry. The demo runs one API instance, with an in-process cancellation registry and database-backed concurrency/idempotency guards. Add distributed cancellation before scaling beyond one process. Browser disconnects alone are insufficient through a buffering or decoupled proxy; all generation remains bounded by the server timeout.
 
+The owned chat detail response includes `activeGeneration: { clientMessageId, generationId } | null`. Use it to stop a pending response after refresh or navigation, even without a local SDK stream. These identifiers are private action metadata and must not be included in public snapshots. Pending conversations continue polling for final status and reject concurrent sends.
+
 **Status semantics:**
 
 - `400` invalid input; `401` missing session; `403` for forbidden actions when appropriate.
@@ -327,6 +329,8 @@ CLIENT_ORIGIN="http://localhost:5173"
 PORT=3001
 NODE_ENV=development
 TRUST_PROXY_HOPS=0
+# Hosting only: the same private random value in Vercel and Render.
+# TRUSTED_PROXY_SECRET="generate-a-random-secret-at-least-32-characters"
 
 # Models (ordered)
 OPENROUTER_MODEL_1="cohere/north-mini-code:free"
@@ -348,6 +352,8 @@ VITE_API_BASE_URL="http://localhost:3001/api"
 Choose the actual Better Auth base URL, trusted origins and cookie settings consistently with how the client and API are hosted. On local development, both applications may run on different ports; on production, a same-site reverse proxy (`/api` → Express) can simplify cookie handling.
 
 The selected demo topology uses the default Vercel/Render domains and a same-origin `/api` proxy before the Vercel SPA fallback. Both server auth/origin URLs point to the stable Vercel origin. Render's free web service runs Prisma migrations at startup and uses `/api/ready` as its health check; the separate free PostgreSQL database expires after 30 days. `TRUST_PROXY_HOPS` defaults to 0 for local direct access; configure a verified bounded proxy chain in hosting. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for settings and verification. Local checks and deployment files do not establish that a live deployment has been verified.
+
+Vercel's API route overwrites a private verification header using `TRUSTED_PROXY_SECRET`. Only verified requests may use Vercel's single visitor `x-real-ip`; other requests use the bounded Express connection IP. Overwrite the internal client-IP header before passing it to Better Auth and Express rate limiting. Keep the proxy secret server-only, out of browser variables and logs. Explicitly retain `Cache-Control: no-store` when the SDK writes streaming headers.
 
 ## 12. Delivery plan
 
