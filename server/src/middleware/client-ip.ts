@@ -17,11 +17,13 @@ export function clientIp(config: Config): RequestHandler {
     const trusted =
       expected !== null && supplied !== undefined &&
       timingSafeEqual(expected, createHash('sha256').update(supplied).digest());
+    if (expected && !trusted && !['/health', '/ready'].includes(request.path))
+      throw new HttpError(403, 'UNTRUSTED_PROXY', 'Use the application URL to access this API.');
     const address = trusted
       // Vercel replaces caller-supplied X-Forwarded-For; Render appends its proxy hops.
       // Only a verified Vercel request may use that first visitor address.
       ? request.get('x-forwarded-for')?.split(',')[0]?.trim()
-      : request.ip || request.socket.remoteAddress;
+      : request.socket.remoteAddress;
     if (!address || !isIP(address)) {
       console.warn('Invalid client IP metadata', {
         source: trusted ? 'verified-proxy' : 'connection',

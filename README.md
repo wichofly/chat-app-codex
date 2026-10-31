@@ -111,7 +111,7 @@ The API mounts Better Auth at `/api/auth/*splat`, uses its Prisma PostgreSQL ada
 
 The React client uses the official Better Auth SDK in `client/src/lib/auth-client.ts`; authentication is not decoded through the generic application request helper. Cookie sessions also revalidate on focus and auth changes through the SDK. No secrets belong in client environment variables.
 
-Hosted auth rate limits use a normalized visitor IP shared by Express and Better Auth. Vercel adds a private verification header using `TRUSTED_PROXY_SECRET`; Render uses the first address in Vercel's sanitized `X-Forwarded-For` chain only when that secret matches. Configure the same private random value on both hosts, never with a `VITE_` prefix. Direct API requests use the connection IP, and caller-supplied internal IP headers are overwritten. Streaming responses explicitly retain `Cache-Control: no-store`.
+Hosted auth rate limits use a normalized visitor IP shared by Express and Better Auth. Vercel adds a private verification header using `TRUSTED_PROXY_SECRET`; Render uses the first address in Vercel's sanitized `X-Forwarded-For` chain only when that secret matches. Configure the same private random value on both hosts, never with a `VITE_` prefix. With that setting enabled, direct origin API requests are rejected except for health/readiness probes. Without it, local access uses the actual socket IP, ignoring forwarded identities. Caller-supplied internal IP headers are overwritten. Streaming responses explicitly retain `Cache-Control: no-store`.
 
 Still required for the full spec: durable sharing snapshots/tokens, public-share rate limits, and their integration tests. The preview generator is never a production data store.
 

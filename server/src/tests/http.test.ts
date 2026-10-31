@@ -37,7 +37,7 @@ describe('HTTP authentication boundary without a database', () => {
     expect(result.headers['cache-control']).toBe('no-store');
     await request(app).get('/api/health').expect(200);
   });
-  it('uses the nearest forwarded client for rate limits when one proxy hop is trusted', async () => {
+  it('ignores unsigned forwarded identities even when Express proxy hops are configured', async () => {
     const proxied = createApp({
       config: { ...config, TRUST_PROXY_HOPS: 1 }, auth, database,
     });
@@ -51,7 +51,7 @@ describe('HTTP authentication boundary without a database', () => {
     const otherClient = await attempt('198.51.100.11');
     expect(first.headers.ratelimit).toMatch(/\br=29\b/);
     expect(sameClient.headers.ratelimit).toMatch(/\br=28\b/);
-    expect(otherClient.headers.ratelimit).toMatch(/\br=29\b/);
+    expect(otherClient.headers.ratelimit).toMatch(/\br=27\b/);
   });
   it('separates verified visitors behind Vercel while ignoring forged visitor headers', async () => {
     const proxySecret = 'test-only-proxy-secret-with-32-characters';
@@ -75,8 +75,12 @@ describe('HTTP authentication boundary without a database', () => {
     expect(same.headers.ratelimit).toMatch(/\br=28\b/);
     const forged = await attempt('192.0.2.20', 'wrong-secret');
     const forgedAgain = await attempt('192.0.2.21');
-    expect(forged.headers.ratelimit).toMatch(/\br=29\b/);
-    expect(forgedAgain.headers.ratelimit).toMatch(/\br=28\b/);
+    expect(forged.status).toBe(403);
+    expect(forgedAgain.status).toBe(403);
+    expect(forged.body.error.code).toBe('UNTRUSTED_PROXY');
+    await request(proxied).get('/api/health').set('X-Real-IP', '192.0.2.99').expect(200);
+    vi.spyOn(database, '$queryRaw').mockResolvedValueOnce([{ value: 1 }]);
+    await request(proxied).get('/api/ready').expect(200);
     // Better Auth must receive the same normalized identity as Express, not a shared fallback.
     let lastStatus = 0;
     for (let index = 0; index < 11; index++) lastStatus = (await attempt('192.0.2.30', proxySecret)).status;
