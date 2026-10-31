@@ -9,7 +9,7 @@
 - Delivered: stored messages, AI SDK 7/OpenRouter streaming, bounded pre-content fallback, cancellation, safe Markdown conversion, idempotent replay/retry, database concurrency guards and account usage limits (SPEC.md phase 3).
 - Verification: provider failure/timeout/cancellation tests, real PostgreSQL message lifecycle and disconnect tests, React SDK streaming tests, and a bounded live primary-model browser check including refresh persistence and mobile rendering.
 - Next: implement durable public snapshot/token lifecycle and its access-control tests (phase 4), followed by remaining deployment and end-to-end checks (phase 5).
-- Deployment in progress: the free Render API is live with a separate PostgreSQL database; migrations and direct liveness/readiness checks passed. The Vercel project, same-origin API rewrite, upload exclusions and [deployment instructions](docs/DEPLOYMENT.md) are prepared. Frontend publishing and hosted browser/provider verification remain pending. The free database expires November 30, 2026.
+- Delivered: [live Vercel demo](https://thread-chat-lovat.vercel.app), free Render API, separate PostgreSQL database, same-origin API proxy and [deployment instructions](docs/DEPLOYMENT.md). Release `577eac1` passed hosted auth/session, saved-chat CRUD, live primary-model streaming/persistence, explicit Stop/Retry, mobile drawer focus/Escape and unavailable public-page checks. Local verification passed 105 tests. Export or upgrade the free database before its November 30, 2026 expiry. Durable sharing, trusted client-IP configuration for Better Auth and wider production hardening remain future work.
 
 ## Delivered frontend plan (historical phase scope)
 

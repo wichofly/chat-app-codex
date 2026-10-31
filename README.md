@@ -2,9 +2,11 @@
 
 React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/password authentication, PostgreSQL/Prisma persistence, and streamed OpenRouter responses through AI SDK 7. Requirements are defined in [SPEC.md](SPEC.md); current priorities are in [ROADMAP.md](ROADMAP.md). Durable public sharing remains future work.
 
+**Live demo:** [Open Thread](https://thread-chat-lovat.vercel.app). Create a new account; the separate hosted database does not contain local accounts. The free Render API may take about a minute to wake after inactivity, and the free database expires **November 30, 2026**. See the [release verification and hosting notes](docs/DEPLOYMENT.md).
+
 ## Run locally
 
-For the hosted setup, follow [Deploy to Vercel and Render](docs/DEPLOYMENT.md). The repository includes `client/vercel.json`, a root `render.yaml`, and separate liveness/readiness endpoints. Hosting accounts, domains and production secrets must be configured before publishing.
+For the hosted setup, follow [Deploy to Vercel and Render](docs/DEPLOYMENT.md). The repository includes `client/vercel.json`, a root `render.yaml`, and separate liveness/readiness endpoints. Replacement deployments need their own hosting access, domain settings and private production secrets.
 
 Use Node **22** (22.12 or newer), npm, and PostgreSQL. Frontend builds target the Node 22 major. Create a dedicated empty `chat_app` database using your PostgreSQL installation before applying migrations.
 

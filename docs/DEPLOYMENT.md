@@ -2,7 +2,17 @@
 
 This deployment uses Vercel for the frontend and free Render services for the API and a separate PostgreSQL database. Render's free database expires after 30 days and has no backups; the API sleeps when idle. This is a demo setup. Durable public sharing, email verification and password recovery remain unfinished or disabled.
 
-Provisioned resources: frontend `https://thread-chat-lovat.vercel.app`, API `https://thread-api-55l7.onrender.com`, and Frankfurt database `thread-chat-db`. The database expires on **November 30, 2026**. Export or upgrade it before that date to retain data. This separate database starts without local accounts or conversations. Resource creation alone does not establish that the release has passed the verification steps below.
+Live resources: frontend `https://thread-chat-lovat.vercel.app`, API `https://thread-api-55l7.onrender.com`, and Frankfurt database `thread-chat-db`. The database expires on **November 30, 2026**. Export or upgrade it before that date to retain data. This separate database starts without local accounts or conversations.
+
+## Verified release — October 31, 2026
+
+Both the API and frontend run commit `577eac1`. Render deployment `dep-dbj63fo473hc73b8t4og` is live; Vercel deployment `dpl_DGxwC1ypTAAVFMwg2CpsDL6oZvKT` is ready and promoted to the public domain. Committed migrations applied successfully. Direct and proxied liveness/readiness checks returned 200; unauthenticated private API access returned 401. SPA deep links loaded successfully.
+
+Chrome checks passed for guest redirects, sign-up/sign-in/sign-out, Secure/HTTP-only/SameSite=Lax cookie acceptance, session restoration after refresh, chat creation/rename/deletion with confirmation and cancel, and saved-message reload. A real `cohere/north-mini-code:free` response streamed and persisted. Explicit Stop preserved incomplete content; Retry completed without another user prompt. Desktop (1440×1000) and mobile (390×844) layouts were inspected; mobile had no horizontal page overflow, drawer focus entered navigation, and Escape restored menu focus. The unavailable public page exposed no composer or generation controls and had `noindex` metadata. Test conversations were deleted; disposable unverified test accounts remain. No uncaught browser errors or unexpected request failures were observed.
+
+Local checks passed: 45 client tests, 39 server unit tests, 21 isolated PostgreSQL integration tests, the server type check, and production builds. Fallback/outage cases used mocked providers; healthy primary-model delivery and Stop/Retry used the live provider. No deliberate provider outage was induced. There is no configured linter. The build retains an existing large chat-chunk warning.
+
+The Vercel runtime error scan and Render API error-level scan were empty during verification. Render did log a Better Auth warning: it could not resolve a trusted client IP and used a shared per-path rate-limit bucket. Authentication works, but verify the ingress IP headers/proxy trust before wider use; shared buckets can limit multiple users together. External alerting/drains were not configured in this deployment. Durable sharing, email verification and password recovery remain unavailable. This release is a free demo, not a completed production-hardening pass.
 
 ## Domains and cookies
 
