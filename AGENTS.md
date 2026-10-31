@@ -12,7 +12,7 @@ Before starting work:
 
 ### Current implementation and intended architecture
 
-- The repository uses npm workspaces with `client/` and `server/` workspaces. Use npm and maintain `package-lock.json`; Node must satisfy the root `engines` requirement (currently 22.12+).
+- The repository uses npm workspaces with `client/` and `server/` workspaces. Use npm and maintain `package-lock.json`; use Node 22.12+ within the Node 22 major pinned for frontend builds and deployment.
 - The existing client uses React 19, strict TypeScript, Vite, React Router, Tailwind CSS, TipTap, Lucide icons, Vitest, and React Testing Library with jsdom.
 - Client organization: `app/` for routes/providers, `components/` for reusable UI, `features/` for auth/chats/sharing, `lib/` for API contracts/helpers, `styles/` for styling, and `test/` for tests.
 - The `server/` workspace uses Node.js 22+/Express 5, TypeScript ESM, Zod, Better Auth, PostgreSQL, and Prisma for authentication and owned chat/message persistence. AI SDK 7/OpenRouter streaming, fallback, cancellation and idempotent retry are implemented; durable sharing remains future work. Follow the spec's modular structure; do not import server modules into the client.
@@ -44,6 +44,7 @@ Before starting work:
 - Check the Better Auth session and resource ownership on every private endpoint. Derive user identity server-side; never trust browser-supplied owner IDs or conversation history. Use the specified generic 404 behavior for non-owned chats and invalid/revoked shares.
 - Load bounded, completed conversation history from PostgreSQL. Use transactions and database-backed generation guards for message ordering, idempotency, and same-chat concurrency.
 - Follow the spec for credentialed CORS, trusted origins, CSRF/origin checks, rate limits, cancellation, pending-message recovery, and `Cache-Control: no-store`. Never expose internal error traces or log private prompts by default.
+- Follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Vercel/Render settings. Keep liveness separate from bounded database readiness, configure proxy trust for the verified ingress only, and distinguish prepared deployment files from a verified live release.
 
 ## Authentication, database, AI, and rich text
 

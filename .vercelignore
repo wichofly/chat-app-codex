@@ -1,0 +1,22 @@
+# Upload only source required by the frontend workspace build.
+.git
+.tmp
+.codex
+.agents
+.vercel
+**/.vercel/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+**/coverage/
+.env
+.env.*
+**/.env
+**/.env.*
+*.log
+**/*.log
+**/*.tsbuildinfo
+server/src/generated/
+server/prisma/auth.generated.prisma

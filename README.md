@@ -4,7 +4,9 @@ React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/p
 
 ## Run locally
 
-Requires Node **22.12+**, npm, and PostgreSQL. Create a dedicated empty `chat_app` database using your PostgreSQL installation before applying migrations.
+For the hosted setup, follow [Deploy to Vercel and Render](docs/DEPLOYMENT.md). The repository includes `client/vercel.json`, a root `render.yaml`, and separate liveness/readiness endpoints. Hosting accounts, domains and production secrets must be configured before publishing.
+
+Use Node **22** (22.12 or newer), npm, and PostgreSQL. Frontend builds target the Node 22 major. Create a dedicated empty `chat_app` database using your PostgreSQL installation before applying migrations.
 
 ```sh
 npm install
@@ -103,13 +105,13 @@ The default API base is `/api`; Vite proxies it to `http://localhost:3001`. To u
 
 `client/src/lib/api.ts` expects `{ data: ... }` for application responses and `{ error: { code, message } }` for errors. Better Auth’s standard session and email/password endpoint response shapes are also supported. Chat detail expects `{ id, title, createdAt, updatedAt, messages }`; sharing state expects `{ url: string | null, sharedAt?: string }`; public snapshots expect `{ title, messages, sharedAt }`. List expects a data array, with pagination deferred.
 
-The API mounts Better Auth at `/api/auth/*splat`, uses its Prisma PostgreSQL adapter, and protects chat routes with `auth.api.getSession`. CORS and mutation origins are allowlisted; auth mutations are limited both by Better Auth and a per-IP Express limiter. Private responses use `Cache-Control: no-store`. Proxy trust is off by default; review proxy/IP settings before deployment. Cookie caching is disabled so database revocation takes effect on subsequent requests.
+The API mounts Better Auth at `/api/auth/*splat`, uses its Prisma PostgreSQL adapter, and protects chat routes with `auth.api.getSession`. CORS and mutation origins are allowlisted; auth mutations are limited both by Better Auth and a per-IP Express limiter. Private responses use `Cache-Control: no-store`. Proxy trust is off by default; `TRUST_PROXY_HOPS` configures a bounded ingress hop count and the Render Blueprint uses 1. Cookie caching is disabled so database revocation takes effect on subsequent requests. `/api/health` checks process liveness; `/api/ready` checks database connectivity with a three-second deadline and a safe 503 on failure.
 
 The React client uses the official Better Auth SDK in `client/src/lib/auth-client.ts`; authentication is not decoded through the generic application request helper. Cookie sessions also revalidate on focus and auth changes through the SDK. No secrets belong in client environment variables.
 
 Still required for the full spec: durable sharing snapshots/tokens, public-share rate limits, and their integration tests. The preview generator is never a production data store.
 
-Production SPA hosting must rewrite non-asset browser routes to `index.html` and proxy `/api` to the separate server. Run the compiled API with `npm start --workspace server`. Set production URLs, a private random secret, and `NODE_ENV=production`; HTTPS is required and auth cookies are Secure, HTTP-only, SameSite=Lax. Host the client and API on the same site; unrelated cross-site domains need a separately reviewed cookie strategy. For local `npm run preview` on another port, configure and rebuild with the direct API base URL and allow that exact preview origin on the server. Public share responses must retain `noindex, nofollow` and no-store when implemented.
+Production SPA hosting must rewrite non-asset browser routes to `index.html`. The selected free Vercel/Render demo keeps `VITE_API_BASE_URL=/api` and proxies API requests through Vercel before the SPA fallback. Both server auth/origin URLs use the stable frontend origin. Render runs migrations at startup because free services have no pre-deploy command; the separate free PostgreSQL database expires after 30 days. Set a private random secret and `NODE_ENV=production`; HTTPS is required and auth cookies are Secure, HTTP-only, SameSite=Lax. For local `npm run preview` on another port, configure and rebuild with the direct API base URL and allow that exact preview origin on the server. Public share responses must retain `noindex, nofollow` and no-store when implemented.
 
 ## Auth schema maintenance
 

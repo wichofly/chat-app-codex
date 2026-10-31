@@ -203,6 +203,7 @@ Base path `/api`. JSON routes accept `Content-Type: application/json` except str
 | Method | Endpoint | Auth | Intent |
 |---|---|---|---|
 | `GET` | `/api/health` | Public | Health check; no sensitive configuration |
+| `GET` | `/api/ready` | Public | Bounded database connectivity check; 200 ready, generic 503 otherwise |
 | `ALL` | `/api/auth/*` | Better Auth | Built-in sign-up, sign-in, sign-out and session endpoints |
 | `GET` | `/api/chats` | Required | List own chats; optional cursor/limit |
 | `POST` | `/api/chats` | Required | Create chat; optional initial title |
@@ -322,6 +323,7 @@ OPENROUTER_API_KEY="replace-with-your-openrouter-key"
 CLIENT_ORIGIN="http://localhost:5173"
 PORT=3001
 NODE_ENV=development
+TRUST_PROXY_HOPS=0
 
 # Models (ordered)
 OPENROUTER_MODEL_1="cohere/north-mini-code:free"
@@ -341,6 +343,8 @@ VITE_API_BASE_URL="http://localhost:3001/api"
 ```
 
 Choose the actual Better Auth base URL, trusted origins and cookie settings consistently with how the client and API are hosted. On local development, both applications may run on different ports; on production, a same-site reverse proxy (`/api` → Express) can simplify cookie handling.
+
+The selected demo topology uses the default Vercel/Render domains and a same-origin `/api` proxy before the Vercel SPA fallback. Both server auth/origin URLs point to the stable Vercel origin. Render's free web service runs Prisma migrations at startup and uses `/api/ready` as its health check; the separate free PostgreSQL database expires after 30 days. `TRUST_PROXY_HOPS` defaults to 0 for local direct access; configure a verified bounded proxy chain in hosting. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for settings and verification. Local checks and deployment files do not establish that a live deployment has been verified.
 
 ## 12. Delivery plan
 
@@ -396,7 +400,7 @@ This specification picks sensible defaults; change them before development only 
 2. **Meaning of edit.** Default: rename chat only; editing previously submitted prompts deferred.
 3. **Assistant formatting.** Default: free-form Markdown safely converted to TipTap JSON after streaming, rather than expecting the AI to produce TipTap JSON directly.
 4. **First model.** Default: Cohere North Mini Code because it was requested; for general conversation quality, Gemma may make a better primary after a short side-by-side test.
-5. **Deployment hosts.** Default: frontend on any static SPA host, Express on a Node-compatible host, managed PostgreSQL. Final domains determine cookie/CORS configuration.
+5. **Deployment hosts.** Selected: Vercel for the static SPA, free Render for the Express API and a separate free PostgreSQL database. Default hosting domains use a same-origin `/api` proxy for cookie sessions. Free database expiry and idle API startup delays are accepted demo limitations.
 
 ---
 
