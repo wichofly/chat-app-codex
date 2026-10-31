@@ -18,7 +18,9 @@ export function clientIp(config: Config): RequestHandler {
       expected !== null && supplied !== undefined &&
       timingSafeEqual(expected, createHash('sha256').update(supplied).digest());
     const address = trusted
-      ? request.get('x-real-ip')?.trim()
+      // Vercel replaces caller-supplied X-Forwarded-For; Render appends its proxy hops.
+      // Only a verified Vercel request may use that first visitor address.
+      ? request.get('x-forwarded-for')?.split(',')[0]?.trim()
       : request.ip || request.socket.remoteAddress;
     if (!address || !isIP(address)) {
       console.warn('Invalid client IP metadata', {

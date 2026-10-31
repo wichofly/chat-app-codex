@@ -61,7 +61,7 @@ describe('HTTP authentication boundary without a database', () => {
       const sending = request(proxied)
         .post('/api/auth/sign-in/email')
         .set('Origin', config.CLIENT_ORIGIN)
-        .set('X-Forwarded-For', '203.0.113.90, 198.51.100.2')
+        .set('X-Forwarded-For', `${visitor}, 198.51.100.2`)
         .set('X-Real-IP', visitor)
         .set('X-Thread-Client-IP', visitor);
       if (secret) sending.set('X-Thread-Proxy-Secret', secret);
@@ -88,7 +88,8 @@ describe('HTTP authentication boundary without a database', () => {
     expect(ipv6.headers.ratelimit).toMatch(/\br=29\b/);
     expect(sameSubnet.headers.ratelimit).toMatch(/\br=28\b/);
     expect(differentSubnet.headers.ratelimit).toMatch(/\br=29\b/);
-    await attempt('192.0.2.10, 192.0.2.11', proxySecret).expect(400);
+    await attempt('invalid-address', proxySecret).expect(400);
+    await request(proxied).get('/api/health').set('X-Thread-Proxy-Secret', proxySecret).expect(400);
   });
   it.each(['get', 'post', 'patch', 'delete'] as const)(
     'rejects unauthenticated %s requests before accessing storage',

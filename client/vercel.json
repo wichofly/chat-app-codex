@@ -11,6 +11,11 @@
       "transforms": [
         {
           "type": "request.headers",
+          "op": "delete",
+          "target": { "key": "x-thread-proxy-secret" }
+        },
+        {
+          "type": "request.headers",
           "op": "set",
           "target": { "key": "x-thread-proxy-secret" },
           "args": "$TRUSTED_PROXY_SECRET",
