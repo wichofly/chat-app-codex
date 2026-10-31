@@ -14,6 +14,16 @@ Local checks passed: 45 client tests, 39 server unit tests, 21 isolated PostgreS
 
 The Vercel runtime error scan and Render API error-level scan were empty during verification. Render did log a Better Auth warning: it could not resolve a trusted client IP and used a shared per-path rate-limit bucket. Authentication works, but verify the ingress IP headers/proxy trust before wider use; shared buckets can limit multiple users together. External alerting/drains were not configured in this deployment. Durable sharing, email verification and password recovery remain unavailable. This release is a free demo, not a completed production-hardening pass.
 
+## Verified review fixes — November 1, 2026
+
+The API now runs `333c4c0` (Render deployment `dep-dbj7550u01pc73el6fp0`); the frontend runs `6a1803e` (Vercel deployment `dpl_Huy5u8882EY5C1q6SwNUuMXFzFk6`). The production domain remains unchanged. These revisions resolve the shared auth identity, restored Stop, and private streaming cache findings. The earlier IP warning above describes the initial release; verified Vercel traffic now supplies a normalized visitor identity to both auth limiters.
+
+Live Chrome verification passed authentication/session restoration, saved chats, desktop/mobile navigation, Stop after reloading a pending conversation, Retry without duplicated prompts, destructive confirmation and public-page restrictions. All three observed AI stream responses retained `Cache-Control: no-store`. Controlled logins with forged IP headers resolved to the same identity as ordinary proxied logins; direct origin API access was rejected and test sessions were revoked. Verification used disposable accounts/conversations and bounded model calls.
+
+Local checks passed 47 client tests, 41 server unit tests and 21 PostgreSQL integration tests, plus the server type check and production build. `auth.config.ts` also passed the Better Auth schema-generation command, writing only the ignored generated schema. That file is a CLI schema configuration; production authentication settings live in `server/src/lib/auth.ts`.
+
+The proxy change was initially rolled back when live validation showed that `x-real-ip` was absent. The corrected deployment uses the verified `X-Forwarded-For` chain and passed staged HTTP/database-readiness checks before publication. The public origin remains protected without trusting caller-supplied forwarded identities. The free-tier and unfinished-feature limitations still apply.
+
 ## Domains and cookies
 
 The browser uses `https://thread-chat-lovat.vercel.app` and calls `/api` on that same origin. The first route in `client/vercel.json` forwards these requests to Render and overwrites `x-thread-proxy-secret` from the private `TRUSTED_PROXY_SECRET` environment variable. Filesystem asset handling and the SPA fallback follow that route. Configure both `BETTER_AUTH_URL` and `CLIENT_ORIGIN` with the frontend origin, and leave `VITE_API_BASE_URL` unset or set it to `/api`. Host-only HTTP-only cookies are then stored for the frontend host; cross-subdomain cookie sharing is unnecessary.
