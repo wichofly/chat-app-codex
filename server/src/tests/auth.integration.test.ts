@@ -60,6 +60,11 @@ afterAll(async () => {
 });
 
 describe('Better Auth + PostgreSQL + protected chat routes', () => {
+  it('reports readiness from a real database without requiring a session', async () => {
+    const result = await request(app).get('/api/ready').expect(200);
+    expect(result.body).toEqual({ data: { status: 'ready' } });
+    expect(result.headers['cache-control']).toBe('no-store');
+  });
   it('signs up through Express, stores a password hash, and sets a private cookie', async () => {
     const result = await signup().expect(200);
     ownerId = result.body.user.id;

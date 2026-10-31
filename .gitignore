@@ -8,4 +8,5 @@ coverage/
 *.log
 server/src/generated/
 .tmp/
+.vercel/
 server/prisma/auth.generated.prisma

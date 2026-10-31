@@ -5,6 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import type { Config } from './config.js';
 import type { Auth } from './lib/auth.js';
 import type { Database } from './lib/prisma.js';
+import { createReadinessProbe } from './lib/readiness.js';
 import { errorHandler, HttpError } from './middleware/errors.js';
 import type { ModelRunner } from './modules/ai/provider.js';
 import { chatRoutes } from './modules/chats/routes.js';
@@ -21,11 +22,13 @@ export function createApp({
   runModel?: ModelRunner;
 }) {
   const app = express();
+  const checkReadiness = createReadinessProbe(database);
   const trustedOrigins = [
     config.CLIENT_ORIGIN,
     new URL(config.BETTER_AUTH_URL).origin,
   ];
   app.disable('x-powered-by');
+  app.set('trust proxy', config.TRUST_PROXY_HOPS || false);
   app.use('/api', (_request, response, next) => {
     response.set('Cache-Control', 'no-store');
     next();
@@ -48,7 +51,7 @@ export function createApp({
       allowedHeaders: ['Content-Type'],
     }),
   );
-  // This IP limiter also limits spoofed forwarded headers; no proxy is trusted by default.
+  // Proxy trust is bounded by the configured ingress hop count; it is off locally.
   app.use(
     '/api/auth',
     rateLimit({
@@ -70,6 +73,19 @@ export function createApp({
   app.use(express.json({ limit: '64kb' }));
   app.get('/api/health', (_request, response) => {
     response.json({ data: { status: 'ok' } });
+  });
+  app.get('/api/ready', async (_request, response) => {
+    try {
+      await checkReadiness();
+      response.json({ data: { status: 'ready' } });
+    } catch {
+      response.status(503).json({
+        error: {
+          code: 'NOT_READY',
+          message: 'The service is temporarily unavailable.',
+        },
+      });
+    }
   });
   app.use(
     '/api/chats',

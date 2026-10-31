@@ -40,6 +40,7 @@ describe('authentication configuration', () => {
       PORT: 3001,
       CLIENT_ORIGIN: 'http://localhost:5173',
       BETTER_AUTH_URL: 'http://localhost:3001',
+      TRUST_PROXY_HOPS: 0,
     });
     expect(() =>
       readConfig({ ...input, CLIENT_ORIGIN: 'http://localhost:5173/path' }),
@@ -47,6 +48,11 @@ describe('authentication configuration', () => {
     expect(() =>
       readConfig({ ...input, CLIENT_ORIGIN: 'ftp://localhost' }),
     ).toThrow('CLIENT_ORIGIN');
+  });
+  it('accepts only a bounded proxy hop count', () => {
+    expect(readConfig({ ...input, TRUST_PROXY_HOPS: '1' }).TRUST_PROXY_HOPS).toBe(1);
+    for (const value of ['true', '-1', '1.5', '6'])
+      expect(() => readConfig({ ...input, TRUST_PROXY_HOPS: value })).toThrow('TRUST_PROXY_HOPS');
   });
   it('requires HTTPS for production cookies', () => {
     expect(() => readConfig({ ...input, NODE_ENV: 'production' })).toThrow(

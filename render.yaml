@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+# Repository root is required for npm workspaces and package-lock.json.
+services:
+  - type: web
+    name: thread-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    numInstances: 1
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build --workspace server
+    # Free web services have no pre-deploy command; migrate before accepting traffic.
+    startCommand: npm run db:migrate --workspace server && exec node server/dist/index.js
+    healthCheckPath: /api/ready
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: thread-chat-db
+          property: connectionString
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        value: https://thread-chat-lovat.vercel.app
+      - key: CLIENT_ORIGIN
+        value: https://thread-chat-lovat.vercel.app
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: MAX_GENERATIONS_PER_USER_DAY
+        value: "15"
+      - key: MAX_USER_MESSAGE_CHARS
+        value: "6000"
+      - key: MAX_HISTORY_MESSAGES
+        value: "20"
+      - key: MAX_AI_OUTPUT_TOKENS
+        value: "1024"
+      - key: AI_FIRST_TOKEN_TIMEOUT_MS
+        value: "15000"
+      - key: AI_TOTAL_TIMEOUT_MS
+        value: "90000"
+
+# Separate demo database. Render Free Postgres expires after 30 days.
+databases:
+  - name: thread-chat-db
+    plan: free
+    region: frankfurt
+    databaseName: thread_chat
+    user: thread_chat
