@@ -13,9 +13,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { paragraph, safeUrl } from '../lib/rich-text';
 import type { RichDocument } from '../lib/types';
-import { paragraph } from '../lib/types';
-import { safeUrl } from './RichText';
 
 export function Composer({
   onSend,
@@ -113,15 +112,9 @@ export function Composer({
   }, [editor, locked]);
   const sending = useRef(false);
   async function send() {
-    if (
-      !editor ||
-      editor.isDestroyed ||
-      locked ||
-      !editor.getText().trim() ||
-      sending.current ||
-      editor.getText().trim().length > 6000
-    )
-      return;
+    if (!editor || editor.isDestroyed || locked || sending.current) return;
+    const text = editor.getText().trim();
+    if (!text || text.length > 6000) return;
     sending.current = true;
     setSendError('');
     setBusy(true);

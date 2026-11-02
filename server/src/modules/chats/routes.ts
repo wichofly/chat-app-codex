@@ -33,6 +33,7 @@ export function chatRoutes(
 ) {
   const router = Router();
   const service = chatService(chatRepository(database));
+  const messageStore = messageRepository(database, config);
   const stream = streamHandler(database, config, runModel);
   router.use(requireSession(auth));
   router.use((request, _response, next) => {
@@ -65,7 +66,7 @@ export function chatRoutes(
       chatId.parse(request.params.chatId),
       userId(response),
     );
-    await messageRepository(database, config).recover(chat.id);
+    await messageStore.recover(chat.id);
     const messages = await database.message.findMany({
       where: { chatId: chat.id },
       orderBy: { sequence: 'asc' },
@@ -137,15 +138,13 @@ export function chatRoutes(
       },
     });
   });
-  for (const feature of ['share']) {
-    router.all(`/:chatId/${feature}`, async (request, _response) => {
-      await service.get(chatId.parse(request.params.chatId), userId(_response));
-      throw new HttpError(
-        503,
-        'FEATURE_UNAVAILABLE',
-        'This feature is not connected yet.',
-      );
-    });
-  }
+  router.all('/:chatId/share', async (request, response) => {
+    await service.get(chatId.parse(request.params.chatId), userId(response));
+    throw new HttpError(
+      503,
+      'FEATURE_UNAVAILABLE',
+      'This feature is not connected yet.',
+    );
+  });
   return router;
 }

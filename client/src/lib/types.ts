@@ -43,15 +43,3 @@ export interface ChatService {
   revokeShare(id: string): Promise<void>;
   getSnapshot(token: string): Promise<Snapshot>;
 }
-
-export function paragraph(text: string): RichDocument {
-  return {
-    type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        ...(text ? { content: [{ type: 'text', text }] } : {}),
-      },
-    ],
-  };
-}

@@ -1,9 +1,8 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import 'dotenv/config';
 import type { Config } from '../config.js';
-import type { Database } from './prisma.js';
 import { AUTH_CLIENT_IP_HEADER } from '../middleware/client-ip.js';
+import type { Database } from './prisma.js';
 
 export function createAuth(database: Database, config: Config) {
   return betterAuth({

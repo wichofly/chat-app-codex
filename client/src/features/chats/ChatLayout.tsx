@@ -4,7 +4,6 @@ import { Navigate, Outlet, useNavigate } from 'react-router';
 import { useApp } from '../../app/providers';
 import { ChatSidebar } from '../../components/ChatSidebar';
 import { Loading } from '../../components/States';
-import type { PreviewOutcome } from './preview-types';
 
 export function ChatLayout() {
   const {
@@ -29,9 +28,10 @@ export function ChatLayout() {
   }, []);
   useEffect(() => {
     if (!mobileOpen) return;
+    const drawer = drawerRef.current;
+    if (!drawer) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const drawer = drawerRef.current!;
     const focusable = () => [
       ...drawer.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled])',
@@ -99,9 +99,15 @@ export function ChatLayout() {
               <select
                 id="preview-response"
                 value={previewOutcome}
-                onChange={(event) =>
-                  setPreviewOutcome(event.target.value as PreviewOutcome)
-                }
+                onChange={(event) => {
+                  const outcome = event.currentTarget.value;
+                  if (
+                    outcome === 'normal' ||
+                    outcome === 'fail-before' ||
+                    outcome === 'fail-during'
+                  )
+                    setPreviewOutcome(outcome);
+                }}
               >
                 <option value="normal">Normal</option>
                 <option value="fail-before">Fail before response</option>

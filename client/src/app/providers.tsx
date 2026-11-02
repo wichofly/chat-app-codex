@@ -119,13 +119,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRevokedSessionId(session.data?.session.id ?? null);
         await session.refetch();
       }
-      previewService?.dispose();
       setPreviewService(null);
       setPreviewOutcome('normal');
       refresh();
     },
     startPreview: () => {
-      previewService?.dispose();
       setPreviewService(createPreviewService());
       setPreviewOutcome('normal');
       refresh();

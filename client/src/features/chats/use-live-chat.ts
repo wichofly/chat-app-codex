@@ -2,12 +2,8 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { baseUrl, request } from '../../lib/api';
-import {
-  paragraph,
-  type Chat,
-  type Message,
-  type RichDocument,
-} from '../../lib/types';
+import { documentText, paragraph } from '../../lib/rich-text';
+import type { Chat, Message, RichDocument } from '../../lib/types';
 
 type Metadata = {
   clientMessageId?: string;
@@ -17,13 +13,6 @@ type Metadata = {
   failureCode?: string | null;
 };
 type LiveMessage = UIMessage<Metadata>;
-function textOf(document: RichDocument): string {
-  return (
-    document.text ??
-    document.content?.map(textOf).join(document.type === 'doc' ? '\n' : '') ??
-    ''
-  );
-}
 function toUI(message: Message): LiveMessage {
   return {
     id: message.id,
@@ -94,7 +83,8 @@ export function useLiveChat(
   const streaming = sdk.status === 'submitted' || sdk.status === 'streaming';
   const localBusy = streaming || stopRequested;
   const busy =
-    localBusy || !!initial?.messages.some((message) => message.status === 'PENDING');
+    localBusy ||
+    !!initial?.messages.some((message) => message.status === 'PENDING');
   const latest = sdk.messages.at(-1);
   const generationId =
     stopRequest?.generationId ??
@@ -154,7 +144,8 @@ export function useLiveChat(
     };
   }, [chatId]);
   useEffect(() => {
-    if (!enabled || !initial || initial === hydrated.current || localBusy) return;
+    if (!enabled || !initial || initial === hydrated.current || localBusy)
+      return;
     hydrated.current = initial;
     for (const message of initial.messages)
       if (message.contentJson)
@@ -179,16 +170,16 @@ export function useLiveChat(
       .map((part) => part.text)
       .join('');
     const isLast = index === sdk.messages.length - 1;
-    const status =
-      message.role === 'user'
-        ? 'COMPLETED'
-        : isLast &&
-            lastSend.current === message.metadata?.clientMessageId &&
-            !busy &&
-            (sdk.error || stopped === lastSend.current)
-          ? 'FAILED'
-          : (message.metadata?.status ??
-            (isLast && busy ? 'PENDING' : 'COMPLETED'));
+    let status =
+      message.metadata?.status ?? (isLast && busy ? 'PENDING' : 'COMPLETED');
+    if (message.role === 'user') status = 'COMPLETED';
+    else if (
+      isLast &&
+      lastSend.current === message.metadata?.clientMessageId &&
+      !busy &&
+      (sdk.error || stopped === lastSend.current)
+    )
+      status = 'FAILED';
     return {
       id: message.id,
       role: message.role === 'user' ? 'USER' : 'ASSISTANT',
@@ -219,23 +210,26 @@ export function useLiveChat(
       failureCode: stopped ? 'STOPPED' : undefined,
     });
   }
-  function send(
-    contentJson: RichDocument,
-    clientMessageId: string = crypto.randomUUID(),
-  ) {
-    if (!chatId || !enabled || busy || sending.current) return false;
+  function prepareGeneration(clientMessageId: string) {
     sending.current = true;
     lastSend.current = clientMessageId;
     setStopped(null);
     setStopError(undefined);
     sdk.clearError();
+  }
+  function send(
+    contentJson: RichDocument,
+    clientMessageId: string = crypto.randomUUID(),
+  ) {
+    if (!chatId || !enabled || busy || sending.current) return false;
+    prepareGeneration(clientMessageId);
     documents.current.set(clientMessageId, contentJson);
     void sdk
       .sendMessage(
         {
           id: clientMessageId,
           role: 'user',
-          parts: [{ type: 'text', text: textOf(contentJson) }],
+          parts: [{ type: 'text', text: documentText(contentJson) }],
           metadata: { clientMessageId },
         },
         { body: { clientMessageId, contentJson } },
@@ -256,11 +250,7 @@ export function useLiveChat(
       .find((message) => message.role === 'USER');
     const clientMessageId = original?.clientMessageId;
     if (!original?.contentJson || !clientMessageId) return;
-    sending.current = true;
-    lastSend.current = clientMessageId;
-    setStopped(null);
-    setStopError(undefined);
-    sdk.clearError();
+    prepareGeneration(clientMessageId);
     const exists = sdk.messages.some((message) => message.id === messageId);
     if (messageId) documents.current.delete(messageId);
     void sdk
@@ -295,7 +285,10 @@ export function useLiveChat(
       setStopError(undefined);
       // Queue an early Stop until the server announces this attempt's generation ID.
       // Keep reading until the explicit request reaches the server through proxies.
-      setStopRequest({ clientMessageId, generationId: targetGenerationId ?? null });
+      setStopRequest({
+        clientMessageId,
+        generationId: targetGenerationId ?? null,
+      });
     },
   };
 }

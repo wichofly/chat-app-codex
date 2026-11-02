@@ -1,8 +1,29 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { RichText } from '../components/RichText'
+import { documentText } from '../lib/rich-text'
 
 describe('read-only rich text', () => {
+  it('preserves hard breaks and nested list boundaries in optimistic and preview text', () => {
+    expect(documentText({ type: 'doc', content: [
+      { type: 'paragraph', content: [
+        { type: 'text', text: 'First line' },
+        { type: 'hardBreak' },
+        { type: 'text', text: 'Second line' },
+      ] },
+      { type: 'bulletList', content: [
+        { type: 'listItem', content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Parent' }] },
+          { type: 'orderedList', content: [
+            { type: 'listItem', content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'Child' }] },
+            ] },
+          ] },
+        ] },
+      ] },
+    ] })).toBe('First line\nSecond line\nParent\nChild')
+  })
+
   it('escapes text, ignores unsafe nodes, and rejects unsafe links', () => {
     const { container } = render(<RichText document={{ type: 'doc', content: [
       { type: 'paragraph', content: [

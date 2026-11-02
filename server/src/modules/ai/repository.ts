@@ -65,18 +65,17 @@ export function messageRepository(database: Database, config: Config) {
               'INVALID_RETRY',
               'This response cannot be retried.',
             );
-          if (assistant) {
-            const latest = await tx.message.aggregate({
+          const latestSequence =
+            (await tx.message.aggregate({
               where: { chatId },
               _max: { sequence: true },
-            });
-            if (latest._max.sequence !== assistant.sequence)
-              throw new HttpError(
-                409,
-                'INVALID_RETRY',
-                'Only the latest response can be retried.',
-              );
-          }
+            }))._max.sequence ?? 0;
+          if (assistant && latestSequence !== assistant.sequence)
+            throw new HttpError(
+              409,
+              'INVALID_RETRY',
+              'Only the latest response can be retried.',
+            );
           const day = new Date();
           day.setUTCHours(0, 0, 0, 0);
           const usage = await tx.generationUsage.upsert({
@@ -90,20 +89,13 @@ export function messageRepository(database: Database, config: Config) {
               'DAILY_LIMIT',
               'You have reached the daily AI message limit. Please try again tomorrow.',
             );
-          const sequence =
-            (
-              await tx.message.aggregate({
-                where: { chatId },
-                _max: { sequence: true },
-              })
-            )._max.sequence ?? 0;
           const user =
             previous ??
             (await tx.message.create({
               data: {
                 chatId,
                 role: 'USER',
-                sequence: sequence + 1,
+                sequence: latestSequence + 1,
                 clientMessageId,
                 contentJson,
                 plainText: plainText(contentJson).trim(),
@@ -127,7 +119,7 @@ export function messageRepository(database: Database, config: Config) {
                 data: {
                   chatId,
                   role: 'ASSISTANT',
-                  sequence: sequence + 2,
+                  sequence: latestSequence + 2,
                   status: 'PENDING',
                   generationId,
                 },

@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from '../app/App'
 import { RouteErrorBoundary } from '../components/RouteErrorBoundary'
-import { paragraph } from '../lib/types'
+import { paragraph } from '../lib/rich-text'
 
 const session = { user: { id: 'user', name: 'Alex', email: 'alex@example.test' } }
 const chat = { id: 'chat', title: 'Loaded conversation', createdAt: '2026-10-28T12:00:00Z', updatedAt: '2026-10-28T12:00:00Z', messages: [{ id: 'user-message', role: 'USER', status: 'COMPLETED', plainText: 'A saved question', contentJson: paragraph('A saved question') }] }

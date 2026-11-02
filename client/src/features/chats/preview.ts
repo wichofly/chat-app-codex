@@ -1,12 +1,6 @@
 import { ApiError } from '../../lib/api';
-import {
-  paragraph,
-  type Chat,
-  type Message,
-  type RichDocument,
-  type ShareState,
-  type Snapshot,
-} from '../../lib/types';
+import { documentText, paragraph } from '../../lib/rich-text';
+import type { Chat, Message, ShareState, Snapshot } from '../../lib/types';
 import type {
   PreviewChatService,
   PreviewChatSnapshot,
@@ -62,31 +56,13 @@ const fixture: Chat[] = [
             {
               type: 'bulletList',
               content: [
-                {
-                  type: 'listItem',
-                  content: [
-                    paragraph(
-                      'Pick one small question. Replace “learn everything about it” with “understand this one thing.”',
-                    ).content![0],
-                  ],
-                },
-                {
-                  type: 'listItem',
-                  content: [
-                    paragraph(
-                      'Make room for 15 minutes. A small, repeatable habit beats an ambitious plan you can’t keep.',
-                    ).content![0],
-                  ],
-                },
-                {
-                  type: 'listItem',
-                  content: [
-                    paragraph(
-                      'Explain it in your own words. The gaps you notice tell you exactly what to explore next.',
-                    ).content![0],
-                  ],
-                },
-              ],
+                'Pick one small question. Replace “learn everything about it” with “understand this one thing.”',
+                'Make room for 15 minutes. A small, repeatable habit beats an ambitious plan you can’t keep.',
+                'Explain it in your own words. The gaps you notice tell you exactly what to explore next.',
+              ].map((text) => ({
+                type: 'listItem',
+                content: paragraph(text).content,
+              })),
             },
             {
               type: 'paragraph',
@@ -141,18 +117,6 @@ const words = SAMPLE_RESPONSE.split(' ');
 const chunks = Array.from({ length: Math.ceil(words.length / 4) }, (_, i) =>
   words.slice(i * 4, i * 4 + 4).join(' '),
 );
-
-function plainText(document: RichDocument): string {
-  if (document.type === 'text') return document.text || '';
-  if (document.type === 'hardBreak') return '\n';
-  return (document.content || [])
-    .map(plainText)
-    .join(
-      ['doc', 'bulletList', 'orderedList'].includes(document.type || '')
-        ? '\n'
-        : '',
-    );
-}
 
 export function createPreviewService(): PreviewChatService {
   const chats = new Map<string, PreviewChatSnapshot>(
@@ -350,7 +314,7 @@ export function createPreviewService(): PreviewChatService {
           'A response is already generating in this conversation.',
           409,
         );
-      const text = plainText(content).trim();
+      const text = documentText(content).trim();
       if (!text || text.length > 6000)
         throw new ApiError('Enter a message of 1–6,000 characters.', 400);
       const assistantId = crypto.randomUUID();

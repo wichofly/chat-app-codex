@@ -152,7 +152,7 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
         {signup ? 'Already have an account?' : 'New around here?'}{' '}
         <Link to={signup ? '/login' : '/signup'}>
           {signup ? 'Sign in' : 'Create an account'}
-          <ArrowUp />
+          <span aria-hidden="true"> ↗</span>
         </Link>
       </p>
       <div className="preview-entry">
@@ -171,8 +171,4 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
       </div>
     </div>
   );
-}
-
-function ArrowUp() {
-  return <span aria-hidden="true"> ↗</span>;
 }

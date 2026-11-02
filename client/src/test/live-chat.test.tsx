@@ -2,7 +2,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { UIMessageChunk } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { useLiveChat } from '../features/chats/use-live-chat';
-import { paragraph, type Chat } from '../lib/types';
+import { paragraph } from '../lib/rich-text';
+import type { Chat } from '../lib/types';
 
 const chat: Chat = {
   id: 'chat',

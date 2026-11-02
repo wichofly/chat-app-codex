@@ -2068,27 +2068,8 @@
       z-index: 3;
     }
 
-    .preview-banner+.mobile-menu {
-      top: 53px;
-    }
-
     .preview-banner {
-      padding: 8px 15px;
       font-size: 9px;
-      min-height: 32px;
-    }
-
-    .preview-banner-detail {
-      font-size: 0;
-    }
-
-    .preview-banner-detail:after {
-      content: ' · Sample data. Resets on refresh.';
-      font-size: 9px;
-    }
-
-    .preview-banner+.mobile-menu+.workspace-main .chat-page {
-      min-height: calc(100dvh - 32px);
     }
 
     .chat-header {

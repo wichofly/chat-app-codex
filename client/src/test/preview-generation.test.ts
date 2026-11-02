@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPreviewService, SAMPLE_RESPONSE } from '../features/chats/preview'
-import { paragraph } from '../lib/types'
+import { paragraph } from '../lib/rich-text'
 
 describe('preview generation', () => {
   beforeEach(() => vi.useFakeTimers())

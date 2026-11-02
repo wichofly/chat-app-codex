@@ -19,6 +19,7 @@ export function ShareDialog({
   );
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
+  const sharedUrl = data?.url;
   async function mutate(disable = false) {
     setBusy(true);
     setActionError('');
@@ -29,7 +30,7 @@ export function ShareDialog({
       notify(
         disable
           ? 'Public link disabled.'
-          : data?.url
+          : sharedUrl
             ? 'Snapshot refreshed. The old link is now disabled.'
             : 'Shared snapshot created.',
       );
@@ -82,7 +83,7 @@ export function ShareDialog({
           </button>
         </div>
       )}
-      {data?.url && (
+      {sharedUrl && (
         <>
           <label className="field-label" htmlFor="share-url">
             Current snapshot link
@@ -91,7 +92,7 @@ export function ShareDialog({
             <input
               id="share-url"
               readOnly
-              value={data.url}
+              value={sharedUrl}
               onFocus={(event) => event.target.select()}
             />
             <button
@@ -99,7 +100,7 @@ export function ShareDialog({
               aria-label="Copy share link"
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(data.url!);
+                  await navigator.clipboard.writeText(sharedUrl);
                   notify('Link copied.');
                 } catch {
                   notify('Select the link and copy it manually.', true);
@@ -111,7 +112,7 @@ export function ShareDialog({
           </div>
           <a
             className="text-link share-open"
-            href={data.url}
+            href={sharedUrl}
             target={preview ? undefined : '_blank'}
             rel="noopener noreferrer"
           >
@@ -128,7 +129,7 @@ export function ShareDialog({
         </p>
       )}
       <div className="dialog-actions share-actions">
-        {data?.url ? (
+        {sharedUrl ? (
           <button
             className="text-button text-danger"
             onClick={() => void mutate(true)}
@@ -152,7 +153,7 @@ export function ShareDialog({
         >
           {busy
             ? 'Working…'
-            : data?.url
+            : sharedUrl
               ? 'Refresh shared snapshot'
               : 'Confirm & create link'}
         </button>

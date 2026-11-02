@@ -116,6 +116,17 @@ export function paragraph(text: string): RichNode {
     })),
   };
 }
+
+const allowedChildren: Record<string, readonly string[]> = {
+  doc: ['paragraph', 'heading', 'bulletList', 'orderedList', 'codeBlock'],
+  paragraph: ['text', 'hardBreak'],
+  heading: ['text', 'hardBreak'],
+  codeBlock: ['text'],
+  bulletList: ['listItem'],
+  orderedList: ['listItem'],
+  listItem: ['paragraph', 'bulletList', 'orderedList'],
+};
+
 export function documentSchema(maxChars: number) {
   return z.unknown().transform((value, context) => {
     // Bound recursion before entering the recursive Zod schema.
@@ -139,26 +150,7 @@ export function documentSchema(maxChars: number) {
     }
     function valid(current: RichNode): boolean {
       const children = current.content ?? [];
-      const inline = ['text', 'hardBreak'];
-      const blocks = [
-        'paragraph',
-        'heading',
-        'bulletList',
-        'orderedList',
-        'codeBlock',
-      ];
-      const allowed =
-        current.type === 'doc'
-          ? blocks
-          : ['paragraph', 'heading'].includes(current.type)
-            ? inline
-            : current.type === 'codeBlock'
-              ? ['text']
-              : ['bulletList', 'orderedList'].includes(current.type)
-                ? ['listItem']
-                : current.type === 'listItem'
-                  ? ['paragraph', 'bulletList', 'orderedList']
-                  : [];
+      const allowed = allowedChildren[current.type] ?? [];
       return (
         (current.type !== 'listItem' || children[0]?.type === 'paragraph') &&
         children.every((child) => allowed.includes(child.type) && valid(child))
