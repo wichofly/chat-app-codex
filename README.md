@@ -20,7 +20,9 @@ Copy `server/.env.example` to `server/.env` (PowerShell: `Copy-Item server/.env.
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-Keep `.env` private. The default URLs are `http://localhost:3001` for the API and `http://localhost:5173` for the client. Use `localhost` consistently; changing the hostname or port also requires matching `CLIENT_ORIGIN`, `BETTER_AUTH_URL`, and any client API URL override.
+Keep `.env` private. The default URLs are `http://localhost:3001` for the API and `http://localhost:5173` for the client. Use `localhost` consistently. A different frontend port needs a matching `CLIENT_ORIGIN`; a different API port needs a matching `BETTER_AUTH_URL` and Vite proxy target.
+
+Keep local and hosted settings separate: local `server/.env` needs `BETTER_AUTH_URL="http://localhost:3001"` and `CLIENT_ORIGIN="http://localhost:5173"`. The deployed API uses the canonical Vercel URL for both settings and `NODE_ENV=production`. Leave `VITE_API_BASE_URL` unset or set it to `/api`: Vite proxies requests to the local API, while Vercel proxies them to the Render Node service. The Render PostgreSQL resource is for the API's server-only `DATABASE_URL`. `server/auth.config.ts` is only for schema generation; runtime authentication uses `server/src/lib/auth.ts` and the validated server environment. Restart the local API after changing `.env`.
 
 Generate the client and apply the committed initial migration:
 
@@ -35,6 +37,8 @@ Run these commands in separate terminals:
 npm run dev:server
 npm run dev
 ```
+
+Both processes must stay running. If Vite opens but `/api` requests return 502, check that Express is running on port 3001. Open `http://localhost:5173/api/health` and `/api/ready`; both should return 200. Readiness checks the local API's database connection. Vite uses a strict port and exits if 5173 is occupied; reuse your existing dev server or stop it before starting another. To intentionally use 5174, set `CLIENT_ORIGIN="http://localhost:5174"` in `server/.env`, restart Express, and run `npm run dev --workspace client -- --port 5174`. Keep `BETTER_AUTH_URL="http://localhost:3001"` when only the frontend port changes.
 
 Open `http://localhost:5173/signup` to register with name, email, and password. Sign-in, refresh restoration, and sign-out use Better Auth and database sessions through HTTP-only cookies. Chat names survive refresh and sign-out; each account sees only its own chats. No email verification or password recovery is configured, so keep the demo password safe. This demo configuration is not intended for production users.
 

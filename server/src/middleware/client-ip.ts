@@ -1,6 +1,6 @@
+import type { RequestHandler } from 'express';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
-import type { RequestHandler } from 'express';
 import type { Config } from '../config.js';
 import { HttpError } from './errors.js';
 
@@ -15,14 +15,19 @@ export function clientIp(config: Config): RequestHandler {
   return (request, _response, next) => {
     const supplied = request.get(PROXY_SECRET_HEADER);
     const trusted =
-      expected !== null && supplied !== undefined &&
+      expected !== null &&
+      supplied !== undefined &&
       timingSafeEqual(expected, createHash('sha256').update(supplied).digest());
     if (expected && !trusted && !['/health', '/ready'].includes(request.path))
-      throw new HttpError(403, 'UNTRUSTED_PROXY', 'Use the application URL to access this API.');
+      throw new HttpError(
+        403,
+        'UNTRUSTED_PROXY',
+        'Use the application URL to access this API.',
+      );
     const address = trusted
-      // Vercel replaces caller-supplied X-Forwarded-For; Render appends its proxy hops.
-      // Only a verified Vercel request may use that first visitor address.
-      ? request.get('x-forwarded-for')?.split(',')[0]?.trim()
+      ? // Vercel replaces caller-supplied X-Forwarded-For; Render appends its proxy hops.
+        // Only a verified Vercel request may use that first visitor address.
+        request.get('x-forwarded-for')?.split(',')[0]?.trim()
       : request.socket.remoteAddress;
     if (!address || !isIP(address)) {
       console.warn('Invalid client IP metadata', {
