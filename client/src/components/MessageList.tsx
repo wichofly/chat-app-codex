@@ -20,56 +20,67 @@ export function MessageList({
 }) {
   return (
     <div className="message-list" aria-label="Conversation messages">
-      {messages.map((message, index) => (
-        <article
-          key={message.id ?? index}
-          className={`message message-${message.role.toLowerCase()}`}
-          aria-label={message.role === 'USER' ? 'You' : 'Thread assistant'}
-        >
-          <div className="message-heading">
-            {message.role === 'ASSISTANT' ? (
-              <ThreadMark small />
-            ) : (
-              <span className="message-user-icon">
-                <UserRound size={15} />
-              </span>
-            )}
-            <strong>{message.role === 'USER' ? 'You' : 'Thread'}</strong>
-            {message.modelId && (
-              <span className="model-label">{message.modelId}</span>
-            )}
-            {preview && message.role === 'ASSISTANT' && (
-              <span className="model-label">UI preview · Sample response</span>
-            )}
-          </div>
-          <div className="message-body">
-            <RichText document={message.contentJson} />
-            {message.status === 'PENDING' && (
-              <div className="generation-status" role="status">
-                <span className="typing-dots">
-                  <i />
-                  <i />
-                  <i />
+      {messages.map((message, index) => {
+        const isAssistant = message.role === 'ASSISTANT';
+        const currentGeneration =
+          generation &&
+          generation.phase !== 'idle' &&
+          generation.messageId === message.id
+            ? generation
+            : undefined;
+        const isStopped =
+          message.failureCode === 'STOPPED' ||
+          currentGeneration?.phase === 'stopped';
+        const canRetry =
+          currentGeneration?.phase === 'failed' ||
+          currentGeneration?.phase === 'stopped' ||
+          (!preview && index === messages.length - 1);
+
+        return (
+          <article
+            key={message.id ?? index}
+            className={`message message-${message.role.toLowerCase()}`}
+            aria-label={isAssistant ? 'Thread assistant' : 'You'}
+          >
+            <div className="message-heading">
+              {isAssistant ? (
+                <ThreadMark small />
+              ) : (
+                <span className="message-user-icon">
+                  <UserRound size={15} />
                 </span>
-                Generating…
-              </div>
-            )}
-            {message.status === 'FAILED' && (
-              <div className="message-failure">
-                <p className="message-failed" role="alert">
-                  <AlertCircle size={16} />
-                  {message.failureCode === 'STOPPED' ||
-                  (generation &&
-                    generation.messageId === message.id &&
-                    generation.phase === 'stopped')
-                    ? 'Generation stopped.'
-                    : 'This response is incomplete. Generation didn’t finish.'}
-                </p>
-                {onRetry &&
-                  ((generation &&
-                    generation.messageId === message.id &&
-                    ['failed', 'stopped'].includes(generation.phase)) ||
-                    (!preview && index === messages.length - 1)) && (
+              )}
+              <strong>{isAssistant ? 'Thread' : 'You'}</strong>
+              {message.modelId && (
+                <span className="model-label">{message.modelId}</span>
+              )}
+              {preview && isAssistant && (
+                <span className="model-label">
+                  UI preview · Sample response
+                </span>
+              )}
+            </div>
+            <div className="message-body">
+              <RichText document={message.contentJson} />
+              {message.status === 'PENDING' && (
+                <div className="generation-status" role="status">
+                  <span className="typing-dots">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  Generating…
+                </div>
+              )}
+              {message.status === 'FAILED' && (
+                <div className="message-failure">
+                  <p className="message-failed" role="alert">
+                    <AlertCircle size={16} />
+                    {isStopped
+                      ? 'Generation stopped.'
+                      : 'This response is incomplete. Generation didn’t finish.'}
+                  </p>
+                  {onRetry && canRetry && (
                     <button
                       className="button button-secondary retry-button"
                       onClick={() => onRetry(message.id)}
@@ -77,11 +88,12 @@ export function MessageList({
                       Retry response
                     </button>
                   )}
-              </div>
-            )}
-          </div>
-        </article>
-      ))}
+                </div>
+              )}
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }

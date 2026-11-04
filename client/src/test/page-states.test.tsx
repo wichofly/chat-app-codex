@@ -20,7 +20,8 @@ describe('page states', () => {
       return pending
     }))
     open('/chats/chat')
-    expect(await screen.findByRole('status', { name: 'Loading conversation' })).toBeInTheDocument()
+    // Wait for the lazy route import; the conversation request stays pending.
+    expect(await screen.findByRole('status', { name: 'Loading conversation' }, { timeout: 5000 })).toBeInTheDocument()
     expect(await screen.findByRole('textbox', { name: 'Message' })).toHaveAttribute('contenteditable', 'false')
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()

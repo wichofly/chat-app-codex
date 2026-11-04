@@ -247,6 +247,7 @@ The owned chat detail response includes `activeGeneration: { clientMessageId, ge
 - `400` invalid input; `401` missing session; `403` for forbidden actions when appropriate.
 - `404` unknown/non-owned chat or invalid/revoked public token (prefer `404` for non-owned resources to avoid leaking existence).
 - `409` concurrent generation or invalid retry state; `429` app-level rate limit.
+- `413` application JSON body exceeds the 64 KiB limit (`PAYLOAD_TOO_LARGE`).
 - `502`/`503` upstream service unavailable; `500` unexpected internal error.
 - Stream failures after HTTP headers are sent must be reported **within the stream**, as the status code cannot then be changed.
 

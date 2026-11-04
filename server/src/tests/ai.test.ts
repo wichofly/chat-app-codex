@@ -207,4 +207,12 @@ describe('rich-text input and generated Markdown', () => {
     expect(JSON.stringify(doc)).not.toContain('"href":"javascript:');
     expect(plainText(doc)).toContain('<script>alert(1)</script>');
   });
+  it('preserves an ordered list starting after one', () => {
+    const document = assistantDocument('5. Fifth item\n6. Sixth item');
+    expect(document.content?.[0]).toMatchObject({
+      type: 'orderedList',
+      attrs: { start: 5 },
+    });
+    expect(plainText(document)).toBe('Fifth item\nSixth item');
+  });
 });

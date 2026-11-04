@@ -188,9 +188,12 @@ export function createPreviewService(): PreviewChatService {
     clearTimeout(timers.get(id));
     timers.delete(id);
   }
-  function finish(id: string, phase: PreviewGeneration['phase']) {
+  function finish(id: string, phase: 'idle' | 'failed' | 'stopped') {
     cancelTimer(id);
     const { chat, generation } = find(id);
+    if (generation.phase !== 'generating') return;
+    const nextGeneration: PreviewGeneration =
+      phase === 'idle' ? { phase } : { phase, messageId: generation.messageId };
     update(
       id,
       {
@@ -202,7 +205,7 @@ export function createPreviewService(): PreviewChatService {
             : message,
         ),
       },
-      { ...generation, phase },
+      nextGeneration,
       true,
     );
   }
@@ -348,7 +351,7 @@ export function createPreviewService(): PreviewChatService {
       const last = chat.messages.at(-1);
       if (
         !last ||
-        !['failed', 'stopped'].includes(generation.phase) ||
+        (generation.phase !== 'failed' && generation.phase !== 'stopped') ||
         last.id !== generation.messageId ||
         last.status !== 'FAILED'
       )

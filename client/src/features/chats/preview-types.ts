@@ -6,10 +6,9 @@ import type {
 } from '../../lib/types';
 
 export type PreviewOutcome = 'normal' | 'fail-before' | 'fail-during';
-export type PreviewGeneration = {
-  phase: 'idle' | 'generating' | 'failed' | 'stopped';
-  messageId?: string;
-};
+export type PreviewGeneration =
+  | { phase: 'idle' }
+  | { phase: 'generating' | 'failed' | 'stopped'; messageId: string };
 export type PreviewChatSnapshot = { chat: Chat; generation: PreviewGeneration };
 
 /** Preview-only behavior. Production HTTP contracts deliberately stay unchanged. */

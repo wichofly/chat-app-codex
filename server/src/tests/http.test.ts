@@ -22,6 +22,19 @@ describe('HTTP authentication boundary without a database', () => {
     expect(result.body).toEqual({ data: { status: 'ok' } });
     expect(result.headers['cache-control']).toBe('no-store');
   });
+  it('rejects oversized JSON as an input error without accessing storage', async () => {
+    const result = await request(app)
+      .post('/api/chats')
+      .send({ title: 'x'.repeat(65 * 1024) })
+      .expect(413);
+    expect(result.body).toEqual({
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'This request is too large. Please shorten your message.',
+      },
+    });
+    expect(result.headers['cache-control']).toBe('no-store');
+  });
   it('reports readiness only when the database responds', async () => {
     vi.spyOn(database, '$queryRaw').mockResolvedValueOnce([{ value: 1 }]);
     const result = await request(app).get('/api/ready').expect(200);
@@ -29,23 +42,31 @@ describe('HTTP authentication boundary without a database', () => {
     expect(result.headers['cache-control']).toBe('no-store');
   });
   it('returns a recoverable readiness error without exposing database details', async () => {
-    vi.spyOn(database, '$queryRaw').mockRejectedValueOnce(new Error('Private database detail'));
+    vi.spyOn(database, '$queryRaw').mockRejectedValueOnce(
+      new Error('Private database detail'),
+    );
     const result = await request(app).get('/api/ready').expect(503);
     expect(result.body).toEqual({
-      error: { code: 'NOT_READY', message: 'The service is temporarily unavailable.' },
+      error: {
+        code: 'NOT_READY',
+        message: 'The service is temporarily unavailable.',
+      },
     });
     expect(result.headers['cache-control']).toBe('no-store');
     await request(app).get('/api/health').expect(200);
   });
   it('ignores unsigned forwarded identities even when Express proxy hops are configured', async () => {
     const proxied = createApp({
-      config: { ...config, TRUST_PROXY_HOPS: 1 }, auth, database,
+      config: { ...config, TRUST_PROXY_HOPS: 1 },
+      auth,
+      database,
     });
-    const attempt = (forwarded: string) => request(proxied)
-      .post('/api/auth/sign-in/email')
-      .set('Origin', config.CLIENT_ORIGIN)
-      .set('X-Forwarded-For', forwarded)
-      .send({});
+    const attempt = (forwarded: string) =>
+      request(proxied)
+        .post('/api/auth/sign-in/email')
+        .set('Origin', config.CLIENT_ORIGIN)
+        .set('X-Forwarded-For', forwarded)
+        .send({});
     const first = await attempt('192.0.2.1, 198.51.100.10');
     const sameClient = await attempt('192.0.2.2, 198.51.100.10');
     const otherClient = await attempt('198.51.100.11');
@@ -55,8 +76,16 @@ describe('HTTP authentication boundary without a database', () => {
   });
   it('separates verified visitors behind Vercel while ignoring forged visitor headers', async () => {
     const proxySecret = 'test-only-proxy-secret-with-32-characters';
-    const proxyConfig = { ...config, TRUST_PROXY_HOPS: 1, TRUSTED_PROXY_SECRET: proxySecret };
-    const proxied = createApp({ config: proxyConfig, auth: createAuth(database, proxyConfig), database });
+    const proxyConfig = {
+      ...config,
+      TRUST_PROXY_HOPS: 1,
+      TRUSTED_PROXY_SECRET: proxySecret,
+    };
+    const proxied = createApp({
+      config: proxyConfig,
+      auth: createAuth(database, proxyConfig),
+      database,
+    });
     const attempt = (visitor: string, secret?: string) => {
       const sending = request(proxied)
         .post('/api/auth/sign-in/email')
@@ -78,12 +107,16 @@ describe('HTTP authentication boundary without a database', () => {
     expect(forged.status).toBe(403);
     expect(forgedAgain.status).toBe(403);
     expect(forged.body.error.code).toBe('UNTRUSTED_PROXY');
-    await request(proxied).get('/api/health').set('X-Real-IP', '192.0.2.99').expect(200);
+    await request(proxied)
+      .get('/api/health')
+      .set('X-Real-IP', '192.0.2.99')
+      .expect(200);
     vi.spyOn(database, '$queryRaw').mockResolvedValueOnce([{ value: 1 }]);
     await request(proxied).get('/api/ready').expect(200);
     // Better Auth must receive the same normalized identity as Express, not a shared fallback.
     let lastStatus = 0;
-    for (let index = 0; index < 11; index++) lastStatus = (await attempt('192.0.2.30', proxySecret)).status;
+    for (let index = 0; index < 11; index++)
+      lastStatus = (await attempt('192.0.2.30', proxySecret)).status;
     expect(lastStatus).toBe(429);
     expect((await attempt('192.0.2.31', proxySecret)).status).not.toBe(429);
     const ipv6 = await attempt('2001:db8:1::1', proxySecret);
@@ -93,7 +126,10 @@ describe('HTTP authentication boundary without a database', () => {
     expect(sameSubnet.headers.ratelimit).toMatch(/\br=28\b/);
     expect(differentSubnet.headers.ratelimit).toMatch(/\br=29\b/);
     await attempt('invalid-address', proxySecret).expect(400);
-    await request(proxied).get('/api/health').set('X-Thread-Proxy-Secret', proxySecret).expect(400);
+    await request(proxied)
+      .get('/api/health')
+      .set('X-Thread-Proxy-Secret', proxySecret)
+      .expect(400);
   });
   it.each(['get', 'post', 'patch', 'delete'] as const)(
     'rejects unauthenticated %s requests before accessing storage',

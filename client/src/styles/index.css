@@ -859,11 +859,6 @@
     font-weight: 600;
   }
 
-  .preview-banner>a {
-    display: flex;
-    padding: 2px;
-  }
-
   .mobile-menu {
     display: none;
   }
@@ -871,13 +866,10 @@
   /* Conversation */
   .chat-page {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    min-height: 100dvh;
+    min-height: 0;
     width: 100%;
-  }
-
-  .preview-banner+.mobile-menu+.workspace-main .chat-page {
-    min-height: calc(100dvh - 34px);
   }
 
   .chat-header {

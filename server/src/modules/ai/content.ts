@@ -24,38 +24,38 @@ export type RichNode = {
     };
   }[];
 };
-const url = z
+const httpUrlSchema = z
   .string()
   .url()
   .refine((value) => ['http:', 'https:'].includes(new URL(value).protocol));
-const linkAttrs = z
+const linkAttributesSchema = z
   .object({
-    href: url,
+    href: httpUrlSchema,
     target: z.string().nullable().optional(),
     rel: z.string().nullable().optional(),
     class: z.string().nullable().optional(),
   })
   .strict();
-const mark = z.union([
+const markSchema = z.union([
   z.object({ type: z.enum(['bold', 'italic', 'code']) }).strict(),
-  z.object({ type: z.literal('link'), attrs: linkAttrs }).strict(),
+  z.object({ type: z.literal('link'), attrs: linkAttributesSchema }).strict(),
 ]);
-const node: z.ZodType<RichNode> = z.lazy(() =>
+const nodeSchema: z.ZodType<RichNode> = z.lazy(() =>
   z.union([
     z
-      .object({ type: z.literal('doc'), content: z.array(node).min(1) })
+      .object({ type: z.literal('doc'), content: z.array(nodeSchema).min(1) })
       .strict(),
     z
       .object({
         type: z.literal('text'),
         text: z.string().min(1),
-        marks: z.array(mark).max(4).optional(),
+        marks: z.array(markSchema).max(4).optional(),
       })
       .strict(),
     z
       .object({
         type: z.literal('paragraph'),
-        content: z.array(node).optional(),
+        content: z.array(nodeSchema).optional(),
       })
       .strict(),
     z
@@ -64,11 +64,14 @@ const node: z.ZodType<RichNode> = z.lazy(() =>
         attrs: z
           .object({ level: z.union([z.literal(2), z.literal(3)]) })
           .strict(),
-        content: z.array(node).optional(),
+        content: z.array(nodeSchema).optional(),
       })
       .strict(),
     z
-      .object({ type: z.literal('bulletList'), content: z.array(node).min(1) })
+      .object({
+        type: z.literal('bulletList'),
+        content: z.array(nodeSchema).min(1),
+      })
       .strict(),
     z
       .object({
@@ -77,11 +80,14 @@ const node: z.ZodType<RichNode> = z.lazy(() =>
           .object({ start: z.number().int().min(1) })
           .strict()
           .optional(),
-        content: z.array(node).min(1),
+        content: z.array(nodeSchema).min(1),
       })
       .strict(),
     z
-      .object({ type: z.literal('listItem'), content: z.array(node).min(1) })
+      .object({
+        type: z.literal('listItem'),
+        content: z.array(nodeSchema).min(1),
+      })
       .strict(),
     z
       .object({
@@ -90,7 +96,7 @@ const node: z.ZodType<RichNode> = z.lazy(() =>
           .object({ language: z.string().max(60).nullable().optional() })
           .strict()
           .optional(),
-        content: z.array(node).optional(),
+        content: z.array(nodeSchema).optional(),
       })
       .strict(),
     z.object({ type: z.literal('hardBreak') }).strict(),
@@ -140,7 +146,7 @@ export function documentSchema(maxChars: number) {
       context.addIssue({ code: 'custom', message: 'Document is too complex.' });
       return z.NEVER;
     }
-    const result = node.safeParse(value);
+    const result = nodeSchema.safeParse(value);
     if (!result.success || result.data.type !== 'doc') {
       context.addIssue({
         code: 'custom',
@@ -175,7 +181,10 @@ function inline(tokens: Token[] = []): RichNode[] {
       case 'em':
       case 'link': {
         const nodes = inline(token.tokens);
-        if (token.type === 'link' && !url.safeParse(token.href).success)
+        if (
+          token.type === 'link' &&
+          !httpUrlSchema.safeParse(token.href).success
+        )
           return nodes;
         const mark =
           token.type === 'link'
@@ -241,6 +250,7 @@ function blocks(tokens: Token[]): RichNode[] {
         return [
           {
             type: token.ordered ? 'orderedList' : 'bulletList',
+            ...(token.ordered ? { attrs: { start: token.start || 1 } } : {}),
             content: token.items.map((item: Tokens.ListItem) => ({
               type: 'listItem',
               content: blocks(item.tokens),

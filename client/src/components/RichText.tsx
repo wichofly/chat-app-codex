@@ -37,8 +37,21 @@ function renderNode(node: RichDocument, key: string): ReactNode {
       );
     case 'bulletList':
       return <ul key={key}>{children}</ul>;
-    case 'orderedList':
-      return <ol key={key}>{children}</ol>;
+    case 'orderedList': {
+      const start: unknown = node.attrs?.start;
+      return (
+        <ol
+          key={key}
+          start={
+            typeof start === 'number' && Number.isInteger(start) && start > 0
+              ? start
+              : undefined
+          }
+        >
+          {children}
+        </ol>
+      );
+    }
     case 'listItem':
       return <li key={key}>{children}</li>;
     case 'codeBlock':

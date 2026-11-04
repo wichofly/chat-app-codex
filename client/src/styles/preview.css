@@ -38,12 +38,6 @@
     max-width: 160px;
   }
 
-  .chat-page,
-  .preview-banner+.mobile-menu+.workspace-main .chat-page {
-    min-height: 0;
-    flex: 1;
-  }
-
   .route-failure {
     min-height: 100dvh;
     display: flex;
