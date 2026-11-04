@@ -346,12 +346,12 @@ AI_FIRST_TOKEN_TIMEOUT_MS=15000
 AI_TOTAL_TIMEOUT_MS=90000
 
 # Client (non-secret)
-VITE_API_BASE_URL="http://localhost:3001/api"
+VITE_API_BASE_URL="/api"
 ```
 
 Choose the actual Better Auth base URL, trusted origins and cookie settings consistently with how the client and API are hosted. On local development, both applications may run on different ports; on production, a same-site reverse proxy (`/api` → Express) can simplify cookie handling.
 
-The selected demo topology uses the default Vercel/Render domains and a same-origin `/api` proxy before the Vercel SPA fallback. Both server auth/origin URLs point to the stable Vercel origin. Render's free web service runs Prisma migrations at startup and uses `/api/ready` as its health check; the separate free PostgreSQL database expires after 30 days. `TRUST_PROXY_HOPS` defaults to 0 for local direct access; configure a verified bounded proxy chain in hosting. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for settings and verification. Local checks and deployment files do not establish that a live deployment has been verified.
+The selected deployment topology uses Vercel for the frontend, Render for the Express API, and Neon for PostgreSQL, with a same-origin `/api` proxy before the Vercel SPA fallback. Both server auth/origin URLs point to the stable Vercel origin. Render's free web service runs Prisma migrations at startup and uses `/api/ready` as its health check. The single API instance uses a direct Neon TLS connection through its existing application connection pool; local development uses a separate database. `TRUST_PROXY_HOPS` defaults to 0 for local direct access; configure a verified bounded proxy chain in hosting. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for migration status, settings and verification. Local checks and deployment files do not establish that a live deployment has been verified.
 
 Vercel's API route overwrites a private verification header using `TRUSTED_PROXY_SECRET`. Only verified requests may use the first visitor address in Vercel's sanitized `X-Forwarded-For` chain; `x-real-ip` is absent at the API in this deployment. When the secret is configured, reject unverified origin API requests with 403 except `/api/health` and `/api/ready`. Public API paths remain available without user sessions through the canonical Vercel origin. Without the secret (local development), use the actual TCP socket IP rather than caller-supplied forwarded identities. Overwrite the internal client-IP header before passing it to Better Auth and Express rate limiting. Keep the proxy secret server-only, out of browser variables and logs. Explicitly retain `Cache-Control: no-store` when the SDK writes streaming headers.
 
@@ -409,7 +409,7 @@ This specification picks sensible defaults; change them before development only 
 2. **Meaning of edit.** Default: rename chat only; editing previously submitted prompts deferred.
 3. **Assistant formatting.** Default: free-form Markdown safely converted to TipTap JSON after streaming, rather than expecting the AI to produce TipTap JSON directly.
 4. **First model.** Default: Cohere North Mini Code because it was requested; for general conversation quality, Gemma may make a better primary after a short side-by-side test.
-5. **Deployment hosts.** Selected: Vercel for the static SPA, free Render for the Express API and a separate free PostgreSQL database. Default hosting domains use a same-origin `/api` proxy for cookie sessions. Free database expiry and idle API startup delays are accepted demo limitations.
+5. **Deployment hosts.** Selected: Vercel for the static SPA, free Render for the Express API and Neon for PostgreSQL. Default hosting domains use a same-origin `/api` proxy for cookie sessions. Idle API startup delays are an accepted demo limitation; keep development and production databases separate.
 
 ---
 

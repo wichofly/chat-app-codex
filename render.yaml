@@ -20,9 +20,7 @@ services:
       - key: TRUST_PROXY_HOPS
         value: "1"
       - key: DATABASE_URL
-        fromDatabase:
-          name: thread-chat-db
-          property: connectionString
+        sync: false # Neon direct PostgreSQL URL, configured privately on Render.
       - key: BETTER_AUTH_SECRET
         generateValue: true
       - key: BETTER_AUTH_URL
@@ -45,11 +43,3 @@ services:
         value: "15000"
       - key: AI_TOTAL_TIMEOUT_MS
         value: "90000"
-
-# Separate demo database. Render Free Postgres expires after 30 days.
-databases:
-  - name: thread-chat-db
-    plan: free
-    region: frankfurt
-    databaseName: thread_chat
-    user: thread_chat

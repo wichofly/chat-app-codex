@@ -1,8 +1,25 @@
-# Free Vercel/Render demo deployment
+# Vercel frontend, Render API and Neon database
 
-This deployment uses Vercel for the frontend and free Render services for the API and a separate PostgreSQL database. Render's free database expires after 30 days and has no backups; the API sleeps when idle. This is a demo setup. Durable public sharing, email verification and password recovery remain unfinished or disabled.
+The deployment configuration uses Vercel for the frontend, a free Render web service for the Express API, and Neon for PostgreSQL. Render's API sleeps when idle. This is a demo setup; durable public sharing, email verification and password recovery remain unfinished or disabled.
 
-Live resources: frontend `https://thread-chat-lovat.vercel.app`, API `https://thread-api-55l7.onrender.com`, and Frankfurt database `thread-chat-db`. The database expires on **November 30, 2026**. Export or upgrade it before that date to retain data. This separate database starts without local accounts or conversations.
+Public URLs: frontend `https://thread-chat-lovat.vercel.app` and API `https://thread-api-55l7.onrender.com`. Neon stores production data in `thread_production`, separate from the local development database. The old Render database `thread-chat-db` is retained as a read-only recovery copy and expires on **November 30, 2026**. The October 31 and November 1 release records below describe the original Render database deployment.
+
+## Verified Neon migration — November 4, 2026
+
+Render deployment `dep-dblm9d15efls73e6p5u0` redeployed the existing API build (`333c4c0`) with the direct Neon production connection. No application dependency or frontend routing change was required. The two committed Prisma migrations matched the source schema. All records in the seven application tables were copied and compared: 5 users, 5 accounts, 10 sessions, 2 chats, 8 messages and 6 daily usage counters; verification was empty. Existing auth/proxy secrets were preserved, and temporary source-network access was removed after transfer. The obsolete database credential was removed from the Render secret file; the explicit service `DATABASE_URL` is now the connection setting.
+
+Direct and Vercel-proxied readiness returned 200. Chrome checks passed sign-up, sign-in, sign-out, session restoration, chat create/rename/delete, saved responses after refresh, a bounded real OpenRouter response, and desktop/mobile navigation. The disposable browser account was confirmed in Neon, then removed with its test data. No uncaught browser errors or unexpected network failures were observed. The production build and Render Blueprint validation passed. Free API startup delays and unfinished sharing/email features remain as described below.
+
+## Move existing data to Neon
+
+1. Create an empty production database in Neon, separate from development. For the existing PostgreSQL 18 source, use PostgreSQL 18 or newer. Keep its connection string private; `server/.env.production.local` is ignored by Git and Vercel uploads and is not automatically loaded by local development.
+2. Use a direct Neon connection with TLS for the API's `DATABASE_URL`. This single Express instance already pools connections through `pg`; a separate Neon pooler and migration URL are unnecessary for this setup. Never put the database URL in Vercel or a `VITE_` variable.
+3. Pause API writes and wait for active generations to finish before the final export. Preserve all users, password hashes, sessions, chats, messages and usage counters. With `pg_dump`/`pg_restore`, use tools at least as new as the source server, a direct connection, and `--no-owner --no-acl`. Keep the old database available for recovery.
+4. Restore into the empty Neon database. Verify migrations, row counts and content before switching traffic. Do not reset or merge into an existing development database.
+5. Set `DATABASE_URL` privately on the existing Render `thread-api` service and redeploy. Keep the existing auth and proxy secrets and both frontend origin settings. An explicit Render environment variable overrides a value loaded by this app's dotenv secret file; `DOTENV_CONFIG_PATH` can keep pointing to the existing secret file for the remaining settings.
+6. Verify readiness through Vercel, authentication/session restoration, owned chat persistence and a bounded streamed response. Confirm new records appear in Neon. Remove the obsolete database credential from the Render secret file once recovery is no longer needed. Delete `thread-chat-db` only after confirming retention and recovery needs.
+
+Changing `render.yaml` does not migrate data or switch an existing service. Its `DATABASE_URL: sync: false` declaration prompts on initial Blueprint creation; existing services need the private value configured explicitly. The Blueprint provisions only the API and does not create a Render database.
 
 ## Verified release — October 31, 2026
 
@@ -46,8 +63,8 @@ Run `npm run test:integration` only with `TEST_DATABASE_URL` set to a dedicated 
 
 ## Deploy the Render API
 
-1. Create a separate free PostgreSQL database (`thread-chat-db`) and a free web service (`thread-api`) in Frankfurt. Use separate credentials/data from local development. The database must be exported or upgraded before its 30-day expiry if the data is needed afterward.
-2. Keep the service root at the repository root so npm can access both workspaces and the root lockfile. The root `render.yaml` records the intended infrastructure and database binding. For a new Blueprint setup, import that file from Git; existing resources created through the CLI should continue to be managed through the CLI unless explicitly adopted into a Blueprint to avoid duplicate resources.
+1. Create a dedicated Neon production database and a free Render web service (`thread-api`) in Frankfurt. Choose a nearby Neon region when creating a new project and keep production data separate from development.
+2. Keep the service root at the repository root so npm can access both workspaces and the root lockfile. The root `render.yaml` defines the API and prompts for the private Neon connection string. For a new Blueprint setup, import that file from Git; existing resources created through the CLI should continue to be managed through the CLI unless explicitly adopted into a Blueprint to avoid duplicate resources.
 3. The free tier has no pre-deploy command. The start command runs committed Prisma migrations before starting Node and accepting traffic. Keep migrations backward compatible and deploy when no chat is generating; the free service's shutdown window may interrupt a long response.
 4. Configure the server settings below. Generate and retain a separate random `BETTER_AUTH_SECRET` for this deployment; Blueprint setup uses `generateValue: true`. CLI deployment can upload a private dotenv secret file and set `DOTENV_CONFIG_PATH=/etc/secrets/thread-runtime.env`. This is an application secret, separate from account passwords and the Better Auth website.
 5. The Vercel API rewrite targets `https://thread-api-55l7.onrender.com/api/:path*`. Update it if replacing the API service. Never commit database passwords, provider keys or auth secrets into either deployment file.
@@ -60,7 +77,7 @@ Run `npm run test:integration` only with `TEST_DATABASE_URL` set to a dedicated 
 | Health check | `/api/ready` |
 | `NODE_VERSION` | `22` |
 | `NODE_ENV` | `production` |
-| `DATABASE_URL` | Your production PostgreSQL URL with provider-required TLS |
+| `DATABASE_URL` | Direct Neon production PostgreSQL URL with TLS |
 | `BETTER_AUTH_URL` | `https://thread-chat-lovat.vercel.app` |
 | `CLIENT_ORIGIN` | `https://thread-chat-lovat.vercel.app` |
 | `OPENROUTER_API_KEY` | Your server-only OpenRouter key |
@@ -73,7 +90,7 @@ Proxy trust stays disabled locally (`TRUST_PROXY_HOPS=0`). Generate one separate
 
 Vercel's external proxy does not reliably propagate browser aborts to the API. The Stop button sends an authenticated request bound to the server's generation ID and waits for partial-response persistence before stopping local reading. Private chat details include the current attempt identifiers, so Stop remains available after refresh or reopening a pending conversation. No action metadata is exposed in public snapshots. Streaming headers explicitly preserve `Cache-Control: no-store`. Keep the API at one instance: provider cancellation also uses a process-local registry. Database guards still enforce message ordering/concurrency. Scaling requires distributed cancellation and rate limiting. Closing a tab or losing a connection can leave generation running behind the proxy until completion or the bounded server timeout.
 
-Automatic Render deploys are initially off to coordinate schema/API/client releases. Deploy API changes first, verify them, then publish the frontend. Export important data before migrations; free Postgres has no automatic backups. App rollbacks do not reverse database migrations; schema changes must remain compatible with any version that can still run. Do not use `db push`, schema resets, or destructive automatic down-migrations.
+Automatic Render deploys are initially off to coordinate schema/API/client releases. Deploy API changes first, verify them, then publish the frontend. Export important data before migrations and check the selected Neon plan's recovery limits. App rollbacks do not reverse database migrations; schema changes must remain compatible with any version that can still run. Do not use `db push`, schema resets, or destructive automatic down-migrations.
 
 ## Deploy the Vercel frontend
 
@@ -105,6 +122,8 @@ Use disposable test data and a bounded live model request:
 - [Vercel monorepos](https://vercel.com/docs/monorepos)
 - [Render Blueprint reference](https://render.com/docs/blueprint-spec)
 - [Render deployment commands](https://render.com/docs/deploys)
+- [Neon Node.js connections](https://neon.com/docs/guides/node)
+- [Migrate from Render to Neon](https://neon.com/docs/import/migrate-from-render)
 - [Render Node version selection](https://render.com/docs/node-version)
 - [Render health checks](https://render.com/docs/health-checks)
 - [Better Auth cookies](https://better-auth.com/docs/concepts/cookies)

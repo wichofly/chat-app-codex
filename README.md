@@ -2,11 +2,11 @@
 
 React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/password authentication, PostgreSQL/Prisma persistence, and streamed OpenRouter responses through AI SDK 7. Requirements are defined in [SPEC.md](SPEC.md); current priorities are in [ROADMAP.md](ROADMAP.md). Durable public sharing remains future work.
 
-**Live demo:** [Open Thread](https://thread-chat-lovat.vercel.app). Create a new account; the separate hosted database does not contain local accounts. The free Render API may take about a minute to wake after inactivity, and the free database expires **November 30, 2026**. See the [release verification and hosting notes](docs/DEPLOYMENT.md).
+**Live demo:** [Open Thread](https://thread-chat-lovat.vercel.app). Production data is stored in Neon, separately from local accounts and conversations. The free Render API may take about a minute to wake after inactivity. See the [release verification and hosting notes](docs/DEPLOYMENT.md).
 
 ## Run locally
 
-For the hosted setup, follow [Deploy to Vercel and Render](docs/DEPLOYMENT.md). The repository includes `client/vercel.json`, a root `render.yaml`, and separate liveness/readiness endpoints. Replacement deployments need their own hosting access, domain settings and private production secrets.
+For the hosted setup, follow [Deploy with Vercel, Render and Neon](docs/DEPLOYMENT.md). The repository includes `client/vercel.json`, an API-only `render.yaml`, and separate liveness/readiness endpoints. Render connects to the Neon `thread_production` database through its private `DATABASE_URL` setting. Replacement deployments need their own hosting access, domain settings and private production secrets.
 
 Use Node **22** (22.12 or newer), npm, and PostgreSQL. Frontend builds target the Node 22 major. Create a dedicated empty `chat_app` database using your PostgreSQL installation before applying migrations.
 
@@ -22,7 +22,7 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 Keep `.env` private. The default URLs are `http://localhost:3001` for the API and `http://localhost:5173` for the client. Use `localhost` consistently. A different frontend port needs a matching `CLIENT_ORIGIN`; a different API port needs a matching `BETTER_AUTH_URL` and Vite proxy target.
 
-Keep local and hosted settings separate: local `server/.env` needs `BETTER_AUTH_URL="http://localhost:3001"` and `CLIENT_ORIGIN="http://localhost:5173"`. The deployed API uses the canonical Vercel URL for both settings and `NODE_ENV=production`. Leave `VITE_API_BASE_URL` unset or set it to `/api`: Vite proxies requests to the local API, while Vercel proxies them to the Render Node service. The Render PostgreSQL resource is for the API's server-only `DATABASE_URL`. `server/auth.config.ts` is only for schema generation; runtime authentication uses `server/src/lib/auth.ts` and the validated server environment. Restart the local API after changing `.env`.
+Keep local and hosted settings separate: local `server/.env` needs `BETTER_AUTH_URL="http://localhost:3001"` and `CLIENT_ORIGIN="http://localhost:5173"`. The deployed API uses the canonical Vercel URL for both settings and `NODE_ENV=production`. Leave `VITE_API_BASE_URL` unset or set it to `/api`: Vite proxies requests to the local API, while Vercel proxies them to the Render Node service. Configure the Neon production `DATABASE_URL` privately on Render; the frontend never connects directly to PostgreSQL. Local development keeps its own database, and `server/.env.production.local` is not loaded automatically. `server/auth.config.ts` is only for schema generation; runtime authentication uses `server/src/lib/auth.ts` and the validated server environment. Restart the local API after changing `.env`.
 
 Generate the client and apply the committed initial migration:
 
@@ -119,7 +119,7 @@ Hosted auth rate limits use a normalized visitor IP shared by Express and Better
 
 Still required for the full spec: durable sharing snapshots/tokens, public-share rate limits, and their integration tests. The preview generator is never a production data store.
 
-Production SPA hosting must rewrite non-asset browser routes to `index.html`. The selected free Vercel/Render demo keeps `VITE_API_BASE_URL=/api` and proxies API requests through Vercel before the SPA fallback. Both server auth/origin URLs use the stable frontend origin. Render runs migrations at startup because free services have no pre-deploy command; the separate free PostgreSQL database expires after 30 days. Set a private random secret and `NODE_ENV=production`; HTTPS is required and auth cookies are Secure, HTTP-only, SameSite=Lax. For local `npm run preview` on another port, configure and rebuild with the direct API base URL and allow that exact preview origin on the server. Public share responses must retain `noindex, nofollow` and no-store when implemented.
+Production SPA hosting must rewrite non-asset browser routes to `index.html`. The Vercel/Render setup keeps `VITE_API_BASE_URL=/api` and proxies API requests through Vercel before the SPA fallback. Both server auth/origin URLs use the stable frontend origin. Render runs migrations at startup against Neon because free web services have no pre-deploy command. Use a direct TLS database connection for this single API instance and keep production data separate from development. Set a private random secret and `NODE_ENV=production`; HTTPS is required and auth cookies are Secure, HTTP-only, SameSite=Lax. For local `npm run preview` on another port, configure and rebuild with the direct API base URL and allow that exact preview origin on the server. Public share responses must retain `noindex, nofollow` and no-store when implemented.
 
 ## Auth schema maintenance
 
