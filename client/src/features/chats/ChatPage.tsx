@@ -20,6 +20,7 @@ import {
   NotFound,
 } from '../../components/States';
 import { ApiError } from '../../lib/api';
+import { isPersona, personas, type Persona } from '../../lib/personas';
 import type { RichDocument } from '../../lib/types';
 import { useDocumentTitle } from '../../lib/use-document-title';
 import { useResource } from '../../lib/use-resource';
@@ -72,7 +73,8 @@ export function ChatPage() {
       ? new ApiError('Conversation not found.', 404)
       : null
     : resource.error;
-  const live = useLiveChat(chatId, chat, !previewService, refresh);
+  const [persona, setPersona] = useState<Persona>('assistant');
+  const live = useLiveChat(chatId, chat, !previewService, refresh, persona);
   const displayedMessages = previewService
     ? (chat?.messages ?? [])
     : live.messages;
@@ -119,10 +121,15 @@ export function ChatPage() {
     )
       return;
     const clientMessageId = pending.clientMessageId;
+    const selectedPersona =
+      'persona' in pending && isPersona(pending.persona)
+        ? pending.persona
+        : 'assistant';
     const contentJson: RichDocument = { ...document, type: 'doc' };
     // Submit only after the mounted effect survives StrictMode's setup/cleanup cycle.
     const timer = setTimeout(() => {
-      if (live.send(contentJson, clientMessageId)) {
+      if (live.send(contentJson, clientMessageId, selectedPersona)) {
+        setPersona(selectedPersona);
         consumedPrompt.current = clientMessageId;
         navigate(location.pathname, { replace: true, state: null });
       }
@@ -151,6 +158,7 @@ export function ChatPage() {
           pendingPrompt: {
             contentJson: content,
             clientMessageId: crypto.randomUUID(),
+            persona,
           },
         },
       });
@@ -277,6 +285,31 @@ export function ChatPage() {
         )}
       </div>
       <div className="composer-dock">
+        {!previewService && (
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#69745f]">
+            <label htmlFor="answer-style">Answer style</label>
+            <select
+              id="answer-style"
+              className="min-h-9 rounded-lg border border-[#dce0d5] bg-white px-3 py-1 font-[inherit] text-[#303832] outline-offset-4 disabled:cursor-not-allowed disabled:opacity-50"
+              value={persona}
+              disabled={loading || generating}
+              aria-describedby="answer-style-help"
+              onChange={(event) => {
+                if (isPersona(event.target.value))
+                  setPersona(event.target.value);
+              }}
+            >
+              {personas.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <span id="answer-style-help">
+              Applies to your next send or retry.
+            </span>
+          </div>
+        )}
         {!previewService && live.error && (
           <div className="send-error" role="alert">
             <p>{live.error}</p>

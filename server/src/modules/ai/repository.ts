@@ -66,10 +66,12 @@ export function messageRepository(database: Database, config: Config) {
               'This response cannot be retried.',
             );
           const latestSequence =
-            (await tx.message.aggregate({
-              where: { chatId },
-              _max: { sequence: true },
-            }))._max.sequence ?? 0;
+            (
+              await tx.message.aggregate({
+                where: { chatId },
+                _max: { sequence: true },
+              })
+            )._max.sequence ?? 0;
           if (assistant && latestSequence !== assistant.sequence)
             throw new HttpError(
               409,

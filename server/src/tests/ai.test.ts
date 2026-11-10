@@ -61,12 +61,17 @@ describe('model fallback boundaries', () => {
       if (modelId === config.OPENROUTER_MODEL_2) throw upstream(429);
       yield 'Fallback answer';
     });
-    const result = await generateAnswer(input(run));
+    const result = await generateAnswer({ ...input(run), persona: 'coach' });
     expect(result.modelId).toBe(config.OPENROUTER_MODEL_3);
     expect(run.mock.calls.map((call) => call[0].modelId)).toEqual([
       config.OPENROUTER_MODEL_1,
       config.OPENROUTER_MODEL_2,
       config.OPENROUTER_MODEL_3,
+    ]);
+    expect(run.mock.calls.map((call) => call[0].persona)).toEqual([
+      'coach',
+      'coach',
+      'coach',
     ]);
   });
   it('skips an unavailable configured model', async () => {

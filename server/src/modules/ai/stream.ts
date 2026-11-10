@@ -5,6 +5,7 @@ import type { Config } from '../../config.js';
 import type { Database } from '../../lib/prisma.js';
 import { HttpError } from '../../middleware/errors.js';
 import { assistantDocument, documentSchema, paragraph } from './content.js';
+import { personaSchema } from './personas.js';
 import {
   generateAnswer,
   GenerationError,
@@ -34,6 +35,7 @@ export function streamHandler(
     .object({
       clientMessageId: z.uuid(),
       contentJson: documentSchema(config.MAX_USER_MESSAGE_CHARS),
+      persona: personaSchema.default('assistant'),
     })
     .strict();
   const send = async (
@@ -118,6 +120,7 @@ export function streamHandler(
               config,
               run: injectedRunner ?? modelRunner(config),
               messages: await repository.history(chatId, assistant.sequence),
+              persona: body.persona,
               signal: cancellation.signal,
               onText: (delta, selected) => {
                 text += delta;

@@ -2,6 +2,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { baseUrl, request } from '../../lib/api';
+import type { Persona } from '../../lib/personas';
 import { documentText, paragraph } from '../../lib/rich-text';
 import type { Chat, Message, RichDocument } from '../../lib/types';
 
@@ -12,7 +13,9 @@ type Metadata = {
   status?: Message['status'];
   failureCode?: string | null;
 };
+
 type LiveMessage = UIMessage<Metadata>;
+
 function toUI(message: Message): LiveMessage {
   return {
     id: message.id,
@@ -32,6 +35,7 @@ export function useLiveChat(
   initial: Chat | null | undefined,
   enabled: boolean,
   refresh: () => void,
+  persona: Persona = 'assistant',
 ) {
   const documents = useRef(new Map<string, RichDocument>());
   const hydrated = useRef<Chat | null>(null);
@@ -75,6 +79,7 @@ export function useLiveChat(
       }),
     [chatId],
   );
+
   const sdk = useChat<LiveMessage>({
     id: chatId ?? 'new-chat',
     transport,
@@ -220,6 +225,7 @@ export function useLiveChat(
   function send(
     contentJson: RichDocument,
     clientMessageId: string = crypto.randomUUID(),
+    selectedPersona: Persona = persona,
   ) {
     if (!chatId || !enabled || busy || sending.current) return false;
     prepareGeneration(clientMessageId);
@@ -232,7 +238,7 @@ export function useLiveChat(
           parts: [{ type: 'text', text: documentText(contentJson) }],
           metadata: { clientMessageId },
         },
-        { body: { clientMessageId, contentJson } },
+        { body: { clientMessageId, contentJson, persona: selectedPersona } },
       )
       .finally(() => {
         sending.current = false;
@@ -256,7 +262,7 @@ export function useLiveChat(
     void sdk
       .regenerate({
         ...(exists ? { messageId } : {}),
-        body: { clientMessageId, contentJson: original.contentJson },
+        body: { clientMessageId, contentJson: original.contentJson, persona },
       })
       .finally(() => {
         sending.current = false;

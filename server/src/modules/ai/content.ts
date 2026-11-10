@@ -215,6 +215,7 @@ function inline(tokens: Token[] = []): RichNode[] {
     }
   });
 }
+
 function blocks(tokens: Token[]): RichNode[] {
   return tokens.flatMap((token): RichNode[] => {
     switch (token.type) {
@@ -269,6 +270,7 @@ function blocks(tokens: Token[]): RichNode[] {
     }
   });
 }
+
 export function assistantDocument(text: string): RichNode {
   try {
     const document = { type: 'doc', content: blocks(marked.lexer(text)) };

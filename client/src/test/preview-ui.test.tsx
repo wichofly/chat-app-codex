@@ -27,6 +27,7 @@ async function enterPreview() {
     { name: /Where shall we/ },
     { timeout: 5000 },
   );
+  expect(screen.queryByRole('combobox', { name: 'Answer style' })).not.toBeInTheDocument();
   return user;
 }
 

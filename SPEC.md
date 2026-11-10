@@ -89,6 +89,7 @@ A registered user can sign in, start a conversation with an AI assistant, compos
 - Use the **Vercel AI SDK**, with OpenRouter as the upstream provider.
 - Stream text to the React UI. Do not wait for the full assistant response before displaying it.
 - For each request, send a short server-controlled system instruction and a bounded history of **completed** prior user/assistant messages in chronological order.
+- In real chats, let the user choose one of three answer styles: **Thread** (`assistant`, the default), **ELI5** (`eli5`, simple short explanations), or **Coach** (`coach`, direct practical action plans). The server maps the selected enum to a fixed system prompt; arbitrary client prompts and model IDs are rejected. The choice applies to each new send or retry, stays the same across that request's fallback attempts, and resets to Thread on page refresh. The choice is not stored on chats/messages. The UI preview continues using its fixed sample responses.
 - The server selects the model and owns fallback logic. The client may display the final model name, but cannot send arbitrary model IDs.
 - Save each completed assistant response and the actual model ID used. Convert Markdown/text to allowlisted TipTap JSON after completion. On refresh, render from stored JSON.
 - No autonomous tool-calling, browser retrieval, image generation or hidden long-running tasks.
@@ -222,6 +223,7 @@ Base path `/api`. JSON routes accept `Content-Type: application/json` except str
 ```json
 {
   "clientMessageId": "f1e01325-3b6e-4fab-8578-c5c9fd7ca410",
+  "persona": "assistant",
   "contentJson": {
     "type": "doc",
     "content": [
@@ -237,6 +239,8 @@ Base path `/api`. JSON routes accept `Content-Type: application/json` except str
 **Streaming response:** use the documented **AI SDK UI Message Stream** protocol for the installed SDK version, not a custom ad-hoc JSON stream, so that `useChat` can consume it. Configure `DefaultChatTransport` / request preparation or a small compatible transport adapter to submit the chat ID and TipTap JSON rather than trusting full client-supplied conversation history. For Express use the SDK's Node response piping helper. Include completion/failure state and model metadata in a version-compatible manner.
 
 **Server is authoritative:** it loads existing history from PostgreSQL based on the authenticated user and chat ID. It must **not** accept an arbitrary list of historical system/user/assistant messages from the browser as trusted context.
+
+The optional streaming request field `persona` accepts only `assistant`, `eli5`, or `coach`; omission defaults to `assistant` for existing clients. A retry uses the currently selected persona with the original user message and idempotency key. A completed request is still replayed without invoking the model, regardless of the submitted persona.
 
 **Explicit Stop through hosting proxies:** stream metadata includes a server-generated `generationId`. Queue an early Stop until that metadata arrives, then send the owned Stop request before closing the local SDK stream. The response is `{ data: { stopped: boolean } }`; `true` acknowledges cancellation after partial content/status persistence, while `false` means the attempt is no longer active or the IDs do not match. A delayed Stop for an earlier generation must not cancel its retry. The demo runs one API instance, with an in-process cancellation registry and database-backed concurrency/idempotency guards. Add distributed cancellation before scaling beyond one process. Browser disconnects alone are insufficient through a buffering or decoupled proxy; all generation remains bounded by the server timeout.
 

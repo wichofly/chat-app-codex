@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { UIMessageChunk } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { useLiveChat } from '../features/chats/use-live-chat';
+import type { Persona } from '../lib/personas';
 import { paragraph } from '../lib/rich-text';
 import type { Chat } from '../lib/types';
 
@@ -47,6 +48,31 @@ function mockStream() {
   return { fetcher, emit, finish };
 }
 describe('real chat transport', () => {
+  it('sends the selected persona and uses the current choice when retrying the same prompt', async () => {
+    const stream = mockStream();
+    stream.fetcher.mockResolvedValueOnce(
+      Response.json({ error: { message: 'Please retry.' } }, { status: 503 }),
+    );
+    const refresh = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ persona }: { persona: Persona }) => useLiveChat(chat.id, chat, true, refresh, persona),
+      { initialProps: { persona: 'eli5' } },
+    );
+    const clientMessageId = crypto.randomUUID();
+    const contentJson = paragraph('Explain this');
+    act(() => { result.current.send(contentJson, clientMessageId); });
+    await waitFor(() => expect(result.current.error).toBe('Please retry.'));
+    expect(JSON.parse(String(stream.fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      clientMessageId, contentJson, persona: 'eli5',
+    });
+    rerender({ persona: 'coach' });
+    act(() => result.current.retry(result.current.messages.at(-1)?.id));
+    await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(stream.fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+      clientMessageId, contentJson, persona: 'coach',
+    });
+    expect(result.current.messages.filter(message => message.role === 'USER')).toHaveLength(1);
+  });
   it('stops a restored pending generation without an active SDK stream and retries its prompt', async () => {
     const stream = mockStream();
     const refresh = vi.fn();
@@ -71,7 +97,7 @@ describe('real chat transport', () => {
     await waitFor(() => expect(result.current.busy).toBe(false));
     act(() => result.current.retry('assistant'));
     await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(String(stream.fetcher.mock.calls[1]?.[1]?.body))).toEqual({ clientMessageId, contentJson: paragraph('Restored prompt') });
+    expect(JSON.parse(String(stream.fetcher.mock.calls[1]?.[1]?.body))).toEqual({ clientMessageId, contentJson: paragraph('Restored prompt'), persona: 'assistant' });
     expect(result.current.messages.filter(message => message.role === 'USER')).toHaveLength(1);
   });
   it('continues polling a restored pending generation while sends stay blocked', async () => {
@@ -112,6 +138,7 @@ describe('real chat transport', () => {
       {
         clientMessageId,
         contentJson: paragraph('Keep this prompt'),
+        persona: 'assistant',
       },
     );
   });
@@ -135,6 +162,7 @@ describe('real chat transport', () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       clientMessageId,
       contentJson,
+      persona: 'assistant',
     });
     expect(init?.credentials).toBe('include');
     await act(async () => {
@@ -209,7 +237,7 @@ describe('real chat transport', () => {
     act(() => result.current.retry('assistant'));
     await waitFor(() => expect(stream.fetcher).toHaveBeenCalledTimes(3));
     expect(JSON.parse(String(stream.fetcher.mock.calls[2]?.[1]?.body))).toEqual(
-      { clientMessageId, contentJson },
+      { clientMessageId, contentJson, persona: 'assistant' },
     );
     expect(
       result.current.messages.filter((message) => message.role === 'USER'),

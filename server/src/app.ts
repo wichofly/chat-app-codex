@@ -60,7 +60,8 @@ export function createApp({
       windowMs: 15 * 60 * 1000,
       limit: 30,
       skip: (request) => request.method !== 'POST',
-      keyGenerator: (request) => ipKeyGenerator(request.get(AUTH_CLIENT_IP_HEADER) || ''),
+      keyGenerator: (request) =>
+        ipKeyGenerator(request.get(AUTH_CLIENT_IP_HEADER) || ''),
       standardHeaders: 'draft-8',
       legacyHeaders: false,
       message: {
