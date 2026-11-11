@@ -69,6 +69,10 @@ Tokenizer files are downloaded from public Hugging Face repositories on first us
 
 Tests mock providers and never spend OpenRouter quota. For a bounded live smoke check, send one short non-private prompt and confirm a reply, its model label, and persistence after refresh. Do not repeatedly retry credential or quota failures.
 
+Long conversations now keep a private rolling summary in PostgreSQL. When the primary model's input budget or the existing history bounds require compression, the server makes at most one extra primary-model call per send/retry (ten seconds, at most 512 output tokens), then saves the summary and its covered sequence. Later requests reuse it. Recent messages and all original saved messages are preserved; summaries are untrusted, lossy reference data, especially for file contents. Every fallback counts the summary in its own token budget. A failed optional summary falls back to normal history trimming; Stop and credential/credit errors are propagated. This extra call can consume provider quota and is included in the originating app generation attempt. Updates process at most 40 older messages, so a large existing backlog may need several sends to catch up. Summary requests that cannot fit are skipped safely.
+
+Apply the new `20261111000000_conversation_summary` migration with `npm run db:migrate --workspace server` before starting the updated API. Summary text and its cursor are excluded from chat API responses and public snapshots.
+
 ## Pages
 
 | Route            | Layout and content                                                            |

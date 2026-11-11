@@ -103,6 +103,38 @@ afterAll(async () => {
   await database.$disconnect();
 });
 describe('persistent streamed conversations', () => {
+  it('saves and reuses a private rolling summary without changing original messages', async () => {
+    const chat = await database.chat.create({ data: { userId: ownerId, title: 'Summary test' } });
+    await database.message.createMany({ data: Array.from({ length: 22 }, (_, index) => ({
+      chatId: chat.id, role: index % 2 === 0 ? 'USER' as const : 'ASSISTANT' as const,
+      sequence: index + 1, status: 'COMPLETED' as const,
+      plainText: `Original message ${index}`, contentJson: paragraph(`Original message ${index}`),
+    })) });
+    const sendToChat = (id: string) => agent.post(`/api/chats/${chat.id}/messages/stream`)
+      .set('Origin', config.CLIENT_ORIGIN)
+      .send({ clientMessageId: id, contentJson: paragraph('Remember the earlier decisions') });
+    const first = randomUUID();
+    const calls = run.mock.calls.length;
+    await sendToChat(first).expect(200);
+    expect(run.mock.calls.length - calls).toBe(2);
+    const saved = await database.chat.findUniqueOrThrow({ where: { id: chat.id } });
+    expect(saved.contextSummary).toBe('A **saved** answer.');
+    expect(saved.contextThroughSequence).toBe(18);
+    expect(await database.message.count({ where: { chatId: chat.id } })).toBe(24);
+    expect(await database.message.findFirst({ where: { chatId: chat.id, sequence: 1 } }))
+      .toMatchObject({ plainText: 'Original message 0' });
+    const detail = await agent.get(`/api/chats/${chat.id}`).expect(200);
+    expect(detail.body.data).not.toHaveProperty('contextSummary');
+    expect(detail.body.data).not.toHaveProperty('contextThroughSequence');
+    await sendToChat(first).expect(200);
+    expect(run.mock.calls.length - calls).toBe(2);
+    await sendToChat(randomUUID()).expect(200);
+    expect(run.mock.calls.length - calls).toBe(3);
+    expect(JSON.stringify(run.mock.calls.at(-1)?.[0].messages)).toContain('Historical conversation summary');
+    const pending = await database.message.findFirstOrThrow({ where: { chatId: chat.id, sequence: 24 } });
+    expect(await repository.saveSummary(chat.id, pending.id, pending.generationId,
+      saved.contextThroughSequence, 22, 'Stale overwrite')).toBe(false);
+  });
   it('does not invoke a model when Stop arrives before the pending-message transaction finishes', async () => {
     const chatId = (
       await database.chat.create({

@@ -13,6 +13,7 @@ import {
   type ModelRunner,
 } from './provider.js';
 import { messageRepository } from './repository.js';
+import { prepareConversation } from './summary.js';
 
 export function streamHandler(
   database: Database,
@@ -116,10 +117,18 @@ export function streamHandler(
             modelId = assistant.modelId;
             writer.write({ type: 'text-delta', id: assistant.id, delta: text });
           } else {
+            const run = injectedRunner ?? modelRunner(config);
+            const context = await repository.context(chatId, assistant.sequence);
+            const messages = await prepareConversation({
+              config, run, context,
+              persona: body.persona, signal: cancellation.signal,
+              save: (through, summary) => repository.saveSummary(chatId, assistant.id,
+                assistant.generationId, context.through, through, summary),
+            });
             const result = await generateAnswer({
               config,
-              run: injectedRunner ?? modelRunner(config),
-              messages: await repository.history(chatId, assistant.sequence),
+              run,
+              messages,
               persona: body.persona,
               signal: cancellation.signal,
               onText: (delta, selected) => {

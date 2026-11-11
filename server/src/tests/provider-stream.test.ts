@@ -35,6 +35,27 @@ async function collect(reason?: string, persona?: Persona) {
 }
 
 describe('provider stream completion', () => {
+  it('forwards the summary system prompt, final user instruction and output cap to the SDK', async () => {
+    streamTextMock.mockReturnValue({ fullStream: (async function* () {
+      yield { type: 'text-delta', text: 'A factual summary' };
+      yield { type: 'finish', finishReason: 'stop' };
+    })() });
+    const messages = [
+      { role: 'user' as const, content: '{"messages":[]}' },
+      { role: 'user' as const, content: 'Produce the updated conversation summary.' },
+    ];
+    const systemPrompt = 'Summarize the supplied conversation. Return only a factual summary.';
+    const chunks: string[] = [];
+    for await (const chunk of modelRunner(config)({
+      modelId: config.OPENROUTER_MODEL_1, messages, systemPrompt,
+      maxOutputTokens: 512, signal: new AbortController().signal,
+    })) chunks.push(chunk);
+    expect(chunks).toEqual(['A factual summary']);
+    expect(streamTextMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      system: systemPrompt, messages, maxOutputTokens: 512,
+    }));
+  });
+
   it.each([
     { persona: undefined, instruction: 'asks great follow up questions' },
     { persona: 'assistant', instruction: 'asks great follow up questions' },

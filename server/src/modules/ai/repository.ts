@@ -16,6 +16,55 @@ export function messageRepository(database: Database, config: Config) {
   }
   return {
     recover,
+    async context(chatId: string, sequence: number) {
+      const chat = await database.chat.findUniqueOrThrow({
+        where: { id: chatId },
+        select: { contextSummary: true, contextThroughSequence: true },
+      });
+      const where = {
+        chatId, sequence: { gt: chat.contextThroughSequence, lt: sequence },
+        status: 'COMPLETED' as const,
+      };
+      const recent = await database.message.findMany({
+        where, orderBy: { sequence: 'desc' }, take: config.MAX_HISTORY_MESSAGES,
+        select: { role: true, plainText: true, sequence: true },
+      });
+      let size = 0;
+      const history = recent.filter((message) => {
+        size += message.plainText.length;
+        return size <= 24000;
+      }).reverse().map((message) => ({
+        role: message.role === 'USER' ? 'user' as const : 'assistant' as const,
+        content: message.plainText, sequence: message.sequence,
+      }));
+      // Protect the newest two turns (including the current question).
+      const boundary = recent[Math.min(3, recent.length - 1)]?.sequence ?? sequence;
+      const oldest = await database.message.findMany({
+        where: { ...where, sequence: { gt: chat.contextThroughSequence, lt: boundary } },
+        orderBy: { sequence: 'asc' }, take: 40,
+        select: { role: true, plainText: true, sequence: true },
+      });
+      return {
+        summary: chat.contextSummary ?? '',
+        through: chat.contextThroughSequence,
+        history,
+        source: oldest.map((message) => ({
+          role: message.role === 'USER' ? 'user' as const : 'assistant' as const,
+          content: message.plainText, sequence: message.sequence,
+        })),
+      };
+    },
+    async saveSummary(chatId: string, assistantId: string, generationId: string | null,
+      previousThrough: number, through: number, summary: string) {
+      const result = await database.chat.updateMany({
+        where: {
+          id: chatId, contextThroughSequence: previousThrough,
+          messages: { some: { id: assistantId, generationId, status: 'PENDING' } },
+        },
+        data: { contextSummary: summary, contextThroughSequence: through },
+      });
+      return result.count === 1;
+    },
     async begin(
       chatId: string,
       userId: string,

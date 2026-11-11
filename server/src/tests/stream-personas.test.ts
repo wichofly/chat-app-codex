@@ -23,9 +23,12 @@ const store = vi.hoisted(() => ({
     },
     replay: false,
   })),
-  history: vi.fn(async () => [
-    { role: 'user' as const, content: 'A question' },
-  ]),
+  context: vi.fn(async () => ({
+    summary: '', through: 0,
+    history: [{ role: 'user' as const, content: 'A question', sequence: 1 }],
+    source: [],
+  })),
+  saveSummary: vi.fn(async () => true),
   finish: vi.fn(async () => true),
 }));
 vi.mock('../modules/ai/repository.js', () => ({
@@ -92,9 +95,10 @@ describe('streaming persona request validation without a database', () => {
       boundedStream.send(req, res, 'chat', 'owner'),
     );
     boundedApp.use(errorHandler);
-    store.history.mockResolvedValueOnce([
-      { role: 'user', content: 'Q'.repeat(800) },
-    ]);
+    store.context.mockResolvedValueOnce({
+      summary: '', through: 0, source: [],
+      history: [{ role: 'user', content: 'Q'.repeat(800), sequence: 1 }],
+    });
 
     const result = await request(boundedApp).post('/stream').send(body).expect(200);
 
