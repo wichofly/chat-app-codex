@@ -6,65 +6,99 @@ const httpUrl = z
     (value) => ['http:', 'https:'].includes(new URL(value).protocol),
     'Use an HTTP(S) URL',
   );
-const environment = z.object({
-  NODE_ENV: z
-    .enum(['development', 'test', 'production'])
-    .default('development'),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3001),
-  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
-  TRUSTED_PROXY_SECRET: z.string().min(32).optional(),
-  DATABASE_URL: z
-    .url()
-    .refine(
-      (value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol),
-      'Use a PostgreSQL connection URL',
-    ),
-  BETTER_AUTH_SECRET: z
-    .string()
-    .min(32)
-    .refine(
-      (value) => !value.startsWith('replace-'),
-      'Replace the example secret',
-    ),
-  BETTER_AUTH_URL: httpUrl.default('http://localhost:3001'),
-  CLIENT_ORIGIN: httpUrl.default('http://localhost:5173'),
-  OPENROUTER_API_KEY: z.string().min(1).optional(),
-  OPENROUTER_MODEL_1: z.string().min(1).default('cohere/north-mini-code:free'),
-  OPENROUTER_MODEL_2: z
-    .string()
-    .min(1)
-    .default('google/gemma-4-26b-a4b-it:free'),
-  OPENROUTER_MODEL_3: z
-    .string()
-    .min(1)
-    .default('nvidia/nemotron-3-nano-30b-a3b:free'),
-  MAX_GENERATIONS_PER_USER_DAY: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(1000)
-    .default(15),
-  MAX_USER_MESSAGE_CHARS: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(12000)
-    .default(6000),
-  MAX_HISTORY_MESSAGES: z.coerce.number().int().min(1).max(40).default(20),
-  MAX_AI_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(4096).default(1024),
-  AI_FIRST_TOKEN_TIMEOUT_MS: z.coerce
-    .number()
-    .int()
-    .min(100)
-    .max(60000)
-    .default(15000),
-  AI_TOTAL_TIMEOUT_MS: z.coerce
-    .number()
-    .int()
-    .min(1000)
-    .max(180000)
-    .default(90000),
-});
+const environment = z
+  .object({
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
+    PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+    TRUSTED_PROXY_SECRET: z.string().min(32).optional(),
+    DATABASE_URL: z
+      .url()
+      .refine(
+        (value) =>
+          ['postgres:', 'postgresql:'].includes(new URL(value).protocol),
+        'Use a PostgreSQL connection URL',
+      ),
+    BETTER_AUTH_SECRET: z
+      .string()
+      .min(32)
+      .refine(
+        (value) => !value.startsWith('replace-'),
+        'Replace the example secret',
+      ),
+    BETTER_AUTH_URL: httpUrl.default('http://localhost:3001'),
+    CLIENT_ORIGIN: httpUrl.default('http://localhost:5173'),
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
+    OPENROUTER_MODEL_1: z
+      .string()
+      .min(1)
+      .default('cohere/north-mini-code:free'),
+    OPENROUTER_MODEL_2: z
+      .string()
+      .min(1)
+      .default('google/gemma-4-26b-a4b-it:free'),
+    OPENROUTER_MODEL_3: z
+      .string()
+      .min(1)
+      .default('nvidia/nemotron-3-nano-30b-a3b:free'),
+    MAX_GENERATIONS_PER_USER_DAY: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1000)
+      .default(15),
+    MAX_USER_MESSAGE_CHARS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(12000)
+      .default(6000),
+    MAX_HISTORY_MESSAGES: z.coerce.number().int().min(1).max(40).default(20),
+    MAX_AI_OUTPUT_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(4096)
+      .default(1024),
+    AI_MAX_CONTEXT_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(2048)
+      .max(262144)
+      .default(32768),
+    AI_CONTEXT_SAFETY_MARGIN_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(128)
+      .max(8192)
+      .default(1024),
+    AI_FIRST_TOKEN_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(100)
+      .max(60000)
+      .default(15000),
+    AI_TOTAL_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(180000)
+      .default(90000),
+  })
+  .superRefine((values, context) => {
+    if (
+      values.AI_MAX_CONTEXT_TOKENS <=
+      values.MAX_AI_OUTPUT_TOKENS + values.AI_CONTEXT_SAFETY_MARGIN_TOKENS
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AI_MAX_CONTEXT_TOKENS'],
+        message: 'Must exceed the output limit plus the context safety margin',
+      });
+    }
+  });
 
 export function readConfig(input: NodeJS.ProcessEnv = process.env) {
   const key = input.OPENROUTER_API_KEY;

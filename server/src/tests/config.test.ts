@@ -41,7 +41,17 @@ describe('authentication configuration', () => {
       CLIENT_ORIGIN: 'http://localhost:5173',
       BETTER_AUTH_URL: 'http://localhost:3001',
       TRUST_PROXY_HOPS: 0,
+      AI_MAX_CONTEXT_TOKENS: 32768,
+      AI_CONTEXT_SAFETY_MARGIN_TOKENS: 1024,
     });
+    expect(() =>
+      readConfig({
+        ...input,
+        AI_MAX_CONTEXT_TOKENS: '2048',
+        MAX_AI_OUTPUT_TOKENS: '1536',
+        AI_CONTEXT_SAFETY_MARGIN_TOKENS: '1024',
+      }),
+    ).toThrow('AI_MAX_CONTEXT_TOKENS');
     expect(() =>
       readConfig({ ...input, CLIENT_ORIGIN: 'http://localhost:5173/path' }),
     ).toThrow('CLIENT_ORIGIN');

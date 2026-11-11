@@ -5,6 +5,11 @@ import pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.js';
+vi.mock('../modules/ai/tokenizer.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../modules/ai/tokenizer.js')>();
+  const { countModelTokens } = await import('./mock-tokenizer.js');
+  return { ...actual, countModelTokens };
+});
 import { readConfig } from '../config.js';
 import { createAuth } from '../lib/auth.js';
 import { createPrisma } from '../lib/prisma.js';

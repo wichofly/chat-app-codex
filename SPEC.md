@@ -89,6 +89,7 @@ A registered user can sign in, start a conversation with an AI assistant, compos
 - Use the **Vercel AI SDK**, with OpenRouter as the upstream provider.
 - Stream text to the React UI. Do not wait for the full assistant response before displaying it.
 - For each request, send a short server-controlled system instruction and a bounded history of **completed** prior user/assistant messages in chronological order.
+- Bound each model request against a configurable shared context-token cap across all fallback candidates. Count the whole formatted prompt with that candidate's pinned native tokenizer and published chat template, including the system prompt, turn delimiters and assistant generation prefix. Reserve the output limit and a safety margin for upstream formatting differences. Remove leading orphaned assistant replies and drop oldest complete turns until the prompt fits. Recount the original bounded history separately for each fallback. Skip a candidate if its tokenizer is unavailable/unsupported or its latest prompt cannot fit; report a safe error if no candidate succeeds. Never substitute a byte estimate or another model's tokenizer. Configure the shared cap below the smallest configured model's current context limit. Published-template counts can differ from the final upstream provider's formatting; they are not a guarantee of identical billed usage.
 - In real chats, let the user choose one of three answer styles: **Thread** (`assistant`, the default), **ELI5** (`eli5`, simple short explanations), or **Coach** (`coach`, direct practical action plans). The server maps the selected enum to a fixed system prompt; arbitrary client prompts and model IDs are rejected. The choice applies to each new send or retry, stays the same across that request's fallback attempts, and resets to Thread on page refresh. The choice is not stored on chats/messages. The UI preview continues using its fixed sample responses.
 - The server selects the model and owns fallback logic. The client may display the final model name, but cannot send arbitrary model IDs.
 - Save each completed assistant response and the actual model ID used. Convert Markdown/text to allowlisted TipTap JSON after completion. On refresh, render from stored JSON.
@@ -269,7 +270,7 @@ The owned chat detail response includes `activeGeneration: { clientMessageId, ge
 8. On cancellation or upstream error after partial output, mark `FAILED` (never `COMPLETED`), persist only clearly labeled partial output if desired, and release the guard. Ensure a Retry action does not duplicate the user prompt.
 9. Update `Chat.updatedAt`; send a final completion signal so the UI can refresh authoritative persisted history.
 
-**Suggested default limits:** `MAX_USER_MESSAGE_CHARS=6000`, `MAX_HISTORY_MESSAGES=20`, `MAX_AI_OUTPUT_TOKENS=1024`, `MAX_GENERATIONS_PER_USER_DAY=15` (application budget only), `MAX_CONCURRENT_GENERATIONS_PER_CHAT=1`, `AI_FIRST_TOKEN_TIMEOUT_MS=15000`. Make these configurable and tune them after testing real free-model behavior.
+**Suggested default limits:** `MAX_USER_MESSAGE_CHARS=6000`, `MAX_HISTORY_MESSAGES=20`, `MAX_AI_OUTPUT_TOKENS=1024`, `AI_MAX_CONTEXT_TOKENS=32768`, `AI_CONTEXT_SAFETY_MARGIN_TOKENS=1024`, `MAX_GENERATIONS_PER_USER_DAY=15` (application budget only), `MAX_CONCURRENT_GENERATIONS_PER_CHAT=1`, `AI_FIRST_TOKEN_TIMEOUT_MS=15000`. Make these configurable and tune them after testing real free-model behavior.
 
 ## 9. Authentication, privacy and security requirements
 
@@ -347,6 +348,8 @@ MAX_GENERATIONS_PER_USER_DAY=15
 MAX_USER_MESSAGE_CHARS=6000
 MAX_HISTORY_MESSAGES=20
 MAX_AI_OUTPUT_TOKENS=1024
+AI_MAX_CONTEXT_TOKENS=32768
+AI_CONTEXT_SAFETY_MARGIN_TOKENS=1024
 AI_FIRST_TOKEN_TIMEOUT_MS=15000
 AI_TOTAL_TIMEOUT_MS=90000
 

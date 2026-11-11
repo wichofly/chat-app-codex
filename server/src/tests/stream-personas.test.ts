@@ -2,6 +2,11 @@ import express from 'express';
 import request from 'supertest';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { readConfig } from '../config.js';
+vi.mock('../modules/ai/tokenizer.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../modules/ai/tokenizer.js')>();
+  const { countModelTokens } = await import('./mock-tokenizer.js');
+  return { ...actual, countModelTokens };
+});
 import { createPrisma } from '../lib/prisma.js';
 import { errorHandler } from '../middleware/errors.js';
 import { paragraph } from '../modules/ai/content.js';
@@ -69,6 +74,41 @@ describe('streaming persona request validation without a database', () => {
     await request(app).post('/stream').send(body).expect(200);
     expect(run).toHaveBeenCalledWith(
       expect.objectContaining({ persona: 'assistant' }),
+    );
+  });
+  it('persists a context rejection and reports it through the stream without calling a model', async () => {
+    const boundedStream = streamHandler(
+      database,
+      {
+        ...config,
+        AI_MAX_CONTEXT_TOKENS: 2048,
+        AI_CONTEXT_SAFETY_MARGIN_TOKENS: 128,
+      },
+      run,
+    );
+    const boundedApp = express();
+    boundedApp.use(express.json());
+    boundedApp.post('/stream', (req, res) =>
+      boundedStream.send(req, res, 'chat', 'owner'),
+    );
+    boundedApp.use(errorHandler);
+    store.history.mockResolvedValueOnce([
+      { role: 'user', content: 'Q'.repeat(800) },
+    ]);
+
+    const result = await request(boundedApp).post('/stream').send(body).expect(200);
+
+    expect(result.text).toContain('CONTEXT_LIMIT');
+    expect(result.text).toContain('Please shorten it');
+    expect(run).not.toHaveBeenCalled();
+    expect(store.finish).toHaveBeenCalledWith(
+      'assistant-message',
+      'generation',
+      expect.objectContaining({
+        status: 'FAILED',
+        failureCode: 'CONTEXT_LIMIT',
+        modelId: null,
+      }),
     );
   });
   it.each(['unknown', '', null, {}, ['coach']])(
