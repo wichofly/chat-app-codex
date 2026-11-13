@@ -123,6 +123,7 @@ export function readConfig(input: NodeJS.ProcessEnv = process.env) {
       !config.CLIENT_ORIGIN.startsWith('https://'))
   )
     throw new Error('Production authentication requires HTTPS');
+
   return config;
 }
 

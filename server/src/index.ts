@@ -9,9 +9,11 @@ const database = createPrisma(config.DATABASE_URL);
 await database.$connect();
 const auth = createAuth(database, config);
 const app = createApp({ config, auth, database });
+
 const server = app.listen(config.PORT, '0.0.0.0', () => {
   console.log(`Thread API listening on port ${config.PORT}`);
 });
+
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     server.close(() => {

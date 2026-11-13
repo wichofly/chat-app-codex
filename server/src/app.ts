@@ -23,18 +23,25 @@ export function createApp({
   runModel?: ModelRunner;
 }) {
   const app = express();
+
   const checkReadiness = createReadinessProbe(database);
+
   const trustedOrigins = [
     config.CLIENT_ORIGIN,
     new URL(config.BETTER_AUTH_URL).origin,
   ];
+
   app.disable('x-powered-by');
+
   app.set('trust proxy', config.TRUST_PROXY_HOPS || false);
+
   app.use('/api', (_request, response, next) => {
     response.set('Cache-Control', 'no-store');
     next();
   });
+
   app.use('/api', clientIp(config));
+
   app.use(
     cors({
       origin: (origin, callback) => {
@@ -53,6 +60,7 @@ export function createApp({
       allowedHeaders: ['Content-Type'],
     }),
   );
+
   // Proxy trust is bounded by the configured ingress hop count; it is off locally.
   app.use(
     '/api/auth',
@@ -72,12 +80,16 @@ export function createApp({
       },
     }),
   );
+
   // Express 5 named wildcard. Better Auth must see the untouched request body.
   app.all('/api/auth/*splat', toNodeHandler(auth));
+
   app.use(express.json({ limit: '64kb' }));
+
   app.get('/api/health', (_request, response) => {
     response.json({ data: { status: 'ok' } });
   });
+
   app.get('/api/ready', async (_request, response) => {
     try {
       await checkReadiness();
@@ -91,10 +103,12 @@ export function createApp({
       });
     }
   });
+
   app.use(
     '/api/chats',
     chatRoutes(database, auth, trustedOrigins, config, runModel),
   );
+
   app.use('/api/shared', (_request, response) => {
     response
       .set('X-Robots-Tag', 'noindex, nofollow')
@@ -103,11 +117,14 @@ export function createApp({
         error: { code: 'NOT_FOUND', message: 'Shared conversation not found.' },
       });
   });
+
   app.use((_request, response) => {
     response
       .status(404)
       .json({ error: { code: 'NOT_FOUND', message: 'Not found.' } });
   });
+
   app.use(errorHandler);
+
   return app;
 }
