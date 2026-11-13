@@ -4,11 +4,17 @@ The deployment configuration uses Vercel for the frontend, a free Render web ser
 
 Public URLs: frontend `https://thread-chat-lovat.vercel.app` and API `https://thread-api-55l7.onrender.com`. Neon stores production data in `thread_production`, separate from the local development database. The old Render database `thread-chat-db` is retained as a read-only recovery copy and expires on **November 30, 2026**. The October 31 and November 1 release records below describe the original Render database deployment.
 
+## Production database correction — November 13, 2026
+
+Render deployment `dep-dbrn41u7bikc73b1m2jg` is live on commit `8564e8b` (application code unchanged from `fe4fed0`). The previous deployment's explicit `DATABASE_URL` pointed to development database `neondb`. The service now uses the existing `thread_production` connection, directly over TLS with `sslmode=verify-full`. Its startup datasource log confirmed the intended database and the committed conversation-summary migration applied successfully.
+
+Read-only checks confirmed that both databases have all three completed migrations and both summary columns. Development accounts and conversations remain separate from production. Direct and Vercel-proxied readiness returned 200, proxied liveness returned 200, and an unauthenticated private chat request returned 401; all retained `Cache-Control: no-store`. No authenticated browser streaming check was performed during this configuration correction.
+
 ## API compatibility update — November 13, 2026
 
-Render deployment `dep-dbrmk6u1egvs73cs5p2g` is live on commit `fe4fed0`. It replaces API commit `333c4c0`, whose strict message validation rejected the deployed frontend's `persona` field with HTTP 400. The locally built frontend asset names matched the public Vercel build, so this release updated the API only. Automatic Render deploys remain off.
+Render deployment `dep-dbrmk6u1egvs73cs5p2g` reached live on commit `fe4fed0` and was superseded by the database correction above. It replaced API commit `333c4c0`, whose strict message validation rejected the deployed frontend's `persona` field with HTTP 400. The locally built frontend asset names matched the public Vercel build, so this release updated the API only. Automatic Render deploys remain off.
 
-The production build and all 96 database-independent server tests passed before deployment. Startup found three committed migrations and no pending migrations. Direct and Vercel-proxied health/readiness probes returned 200 with `Cache-Control: no-store`; an unauthenticated private chat request returned 401. An authenticated browser chat and live model generation were not tested as part of this deployment.
+The production build and all 96 database-independent server tests passed before deployment. Startup found three committed migrations and no pending migrations, but this check was against the mistakenly configured `neondb`, not `thread_production`. Direct and Vercel-proxied health/readiness probes returned 200 with `Cache-Control: no-store`; an unauthenticated private chat request returned 401. An authenticated browser chat and live model generation were not tested as part of this deployment.
 
 ## Verified Neon migration — November 4, 2026
 
@@ -74,7 +80,7 @@ Run `npm run test:integration` only with `TEST_DATABASE_URL` set to a dedicated 
 3. The free tier has no pre-deploy command. The start command runs committed Prisma migrations before starting Node and accepting traffic. Keep migrations backward compatible and deploy when no chat is generating; the free service's shutdown window may interrupt a long response.
 4. Configure the server settings below. Generate and retain a separate random `BETTER_AUTH_SECRET` for this deployment; Blueprint setup uses `generateValue: true`. CLI deployment can upload a private dotenv secret file and set `DOTENV_CONFIG_PATH=/etc/secrets/thread-runtime.env`. This is an application secret, separate from account passwords and the Better Auth website.
 5. The Vercel API rewrite targets `https://thread-api-55l7.onrender.com/api/:path*`. Update it if replacing the API service. Never commit database passwords, provider keys or auth secrets into either deployment file.
-6. Confirm `/api/health` and `/api/ready` return 200 through both the API origin and Vercel proxy. Readiness queries PostgreSQL, returns a generic 503 on failure, and has a three-second response deadline. Concurrent probes reuse a stalled query instead of exhausting the connection pool. Readiness checks connectivity, not schema migration completeness; review the migration logs too.
+6. Confirm `/api/health` and `/api/ready` return 200 through both the API origin and Vercel proxy. Readiness queries PostgreSQL, returns a generic 503 on failure, and has a three-second response deadline. Concurrent probes reuse a stalled query instead of exhausting the connection pool. Readiness checks connectivity, not database identity or schema migration completeness; confirm the startup datasource is `thread_production` and review migration results too.
 
 | Setting                    | Value                                                                        |
 | -------------------------- | ---------------------------------------------------------------------------- |

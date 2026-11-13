@@ -2,7 +2,7 @@
 
 ## Current status and priorities
 
-- November 13 deployment: Render API commit `fe4fed0` is live and accepts the deployed frontend's answer-style field, resolving the confirmed request-contract mismatch with the old API. All three migrations are current; direct/proxied readiness and private-route authentication checks passed. Authenticated browser streaming remains unverified for this release; see [deployment notes](docs/DEPLOYMENT.md).
+- November 13 deployment: Render API commit `8564e8b` is live with the same application code as `fe4fed0`, accepting the frontend's answer-style field. Corrected Render's database target from development `neondb` to `thread_production`, where all three migrations are now applied. Direct/proxied readiness and private-route authentication checks passed. Authenticated browser streaming remains unverified for this release; see [deployment notes](docs/DEPLOYMENT.md).
 
 - Delivered: the six frontend routes/layouts, accessible controls, and isolated interactive UI preview described below.
 - Delivered: Better Auth email/password sign-up/sign-in/sign-out; PostgreSQL/Prisma sessions; Express 5 session/ownership guards; persistent empty-chat CRUD; migrations and setup instructions.
