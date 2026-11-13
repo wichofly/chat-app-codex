@@ -4,6 +4,12 @@ The deployment configuration uses Vercel for the frontend, a free Render web ser
 
 Public URLs: frontend `https://thread-chat-lovat.vercel.app` and API `https://thread-api-55l7.onrender.com`. Neon stores production data in `thread_production`, separate from the local development database. The old Render database `thread-chat-db` is retained as a read-only recovery copy and expires on **November 30, 2026**. The October 31 and November 1 release records below describe the original Render database deployment.
 
+## API compatibility update — November 13, 2026
+
+Render deployment `dep-dbrmk6u1egvs73cs5p2g` is live on commit `fe4fed0`. It replaces API commit `333c4c0`, whose strict message validation rejected the deployed frontend's `persona` field with HTTP 400. The locally built frontend asset names matched the public Vercel build, so this release updated the API only. Automatic Render deploys remain off.
+
+The production build and all 96 database-independent server tests passed before deployment. Startup found three committed migrations and no pending migrations. Direct and Vercel-proxied health/readiness probes returned 200 with `Cache-Control: no-store`; an unauthenticated private chat request returned 401. An authenticated browser chat and live model generation were not tested as part of this deployment.
+
 ## Verified Neon migration — November 4, 2026
 
 Render deployment `dep-dblm9d15efls73e6p5u0` redeployed the existing API build (`333c4c0`) with the direct Neon production connection. No application dependency or frontend routing change was required. The two committed Prisma migrations matched the source schema. All records in the seven application tables were copied and compared: 5 users, 5 accounts, 10 sessions, 2 chats, 8 messages and 6 daily usage counters; verification was empty. Existing auth/proxy secrets were preserved, and temporary source-network access was removed after transfer. The obsolete database credential was removed from the Render secret file; the explicit service `DATABASE_URL` is now the connection setting.
@@ -70,19 +76,19 @@ Run `npm run test:integration` only with `TEST_DATABASE_URL` set to a dedicated 
 5. The Vercel API rewrite targets `https://thread-api-55l7.onrender.com/api/:path*`. Update it if replacing the API service. Never commit database passwords, provider keys or auth secrets into either deployment file.
 6. Confirm `/api/health` and `/api/ready` return 200 through both the API origin and Vercel proxy. Readiness queries PostgreSQL, returns a generic 503 on failure, and has a three-second response deadline. Concurrent probes reuse a stalled query instead of exhausting the connection pool. Readiness checks connectivity, not schema migration completeness; review the migration logs too.
 
-| Setting | Value |
-| --- | --- |
-| Build | `npm ci --include=dev && npm run build --workspace server` |
-| Start (Render Linux shell) | `npm run db:migrate --workspace server && exec node server/dist/index.js` |
-| Health check | `/api/ready` |
-| `NODE_VERSION` | `22` |
-| `NODE_ENV` | `production` |
-| `DATABASE_URL` | Direct Neon production PostgreSQL URL with TLS |
-| `BETTER_AUTH_URL` | `https://thread-chat-lovat.vercel.app` |
-| `CLIENT_ORIGIN` | `https://thread-chat-lovat.vercel.app` |
-| `OPENROUTER_API_KEY` | Your server-only OpenRouter key |
-| `TRUST_PROXY_HOPS` | `1` for the direct Render ingress described here |
-| `TRUSTED_PROXY_SECRET` | A private random value of at least 32 characters, matching Vercel production |
+| Setting                    | Value                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| Build                      | `npm ci --include=dev && npm run build --workspace server`                   |
+| Start (Render Linux shell) | `npm run db:migrate --workspace server && exec node server/dist/index.js`    |
+| Health check               | `/api/ready`                                                                 |
+| `NODE_VERSION`             | `22`                                                                         |
+| `NODE_ENV`                 | `production`                                                                 |
+| `DATABASE_URL`             | Direct Neon production PostgreSQL URL with TLS                               |
+| `BETTER_AUTH_URL`          | `https://thread-chat-lovat.vercel.app`                                       |
+| `CLIENT_ORIGIN`            | `https://thread-chat-lovat.vercel.app`                                       |
+| `OPENROUTER_API_KEY`       | Your server-only OpenRouter key                                              |
+| `TRUST_PROXY_HOPS`         | `1` for the direct Render ingress described here                             |
+| `TRUSTED_PROXY_SECRET`     | A private random value of at least 32 characters, matching Vercel production |
 
 The process binds to `0.0.0.0` and uses Render's supplied `PORT`; do not copy the local `PORT=3001` into the hosting settings. The Blueprint includes the application's budget and timeout defaults. Copy any intentional local overrides individually into Render settings; the private `server/.env` is not deployed. The model IDs default to those in `server/src/config.ts` and can be overridden server-side after verifying availability.
 

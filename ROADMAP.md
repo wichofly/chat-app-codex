@@ -2,6 +2,8 @@
 
 ## Current status and priorities
 
+- November 13 deployment: Render API commit `fe4fed0` is live and accepts the deployed frontend's answer-style field, resolving the confirmed request-contract mismatch with the old API. All three migrations are current; direct/proxied readiness and private-route authentication checks passed. Authenticated browser streaming remains unverified for this release; see [deployment notes](docs/DEPLOYMENT.md).
+
 - Delivered: the six frontend routes/layouts, accessible controls, and isolated interactive UI preview described below.
 - Delivered: Better Auth email/password sign-up/sign-in/sign-out; PostgreSQL/Prisma sessions; Express 5 session/ownership guards; persistent empty-chat CRUD; migrations and setup instructions.
 - Authentication intentionally has no email verification, recovery email, OAuth, or user-supplied API keys, per SPEC.md.
