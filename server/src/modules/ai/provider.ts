@@ -59,6 +59,9 @@ export function modelRunner(config: Config): ModelRunner {
       system: systemPrompt,
       maxOutputTokens,
       abortSignal: signal,
+      // fullStream errors are handled below and classified by generateAnswer.
+      // The SDK's default logger includes private request bodies.
+      onError: () => {},
     });
     for await (const part of result.fullStream) {
       if (part.type === 'text-delta') yield part.text;
@@ -174,17 +177,7 @@ export async function generateAnswer({
     signal.throwIfAborted();
     const candidate = new AbortController();
     let text = '';
-    const timer = setTimeout(
-      () =>
-        candidate.abort(
-          new GenerationError(
-            'FIRST_TOKEN_TIMEOUT',
-            'The AI provider took too long to respond.',
-            true,
-          ),
-        ),
-      config.AI_FIRST_TOKEN_TIMEOUT_MS,
-    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const candidateSignal = AbortSignal.any([signal, candidate.signal]);
       const prompt = await fitMessagesToContext({
@@ -209,6 +202,19 @@ export async function generateAnswer({
           inputTokens: prompt.inputTokens,
           maxInputTokens,
         });
+      // Tokenizer loading is bounded separately and by the total request signal.
+      // This deadline measures the provider's time to first answer text.
+      timer = setTimeout(
+        () =>
+          candidate.abort(
+            new GenerationError(
+              'FIRST_TOKEN_TIMEOUT',
+              'The AI provider took too long to respond.',
+              true,
+            ),
+          ),
+        config.AI_FIRST_TOKEN_TIMEOUT_MS,
+      );
       for await (const delta of run({
         modelId,
         messages: prompt.messages,

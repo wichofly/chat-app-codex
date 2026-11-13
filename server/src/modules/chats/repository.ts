@@ -1,7 +1,13 @@
 import type { Database } from '../../lib/prisma.js';
 
 export function chatRepository(database: Database) {
-  const select = { id: true, userId: true, title: true, createdAt: true, updatedAt: true } as const;
+  const select = {
+    id: true,
+    userId: true,
+    title: true,
+    createdAt: true,
+    updatedAt: true,
+  } as const;
   return {
     list: (userId: string) =>
       database.chat.findMany({

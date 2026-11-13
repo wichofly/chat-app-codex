@@ -4,7 +4,8 @@ import { readConfig } from '../config.js';
 import { countModelTokens, TokenizerError } from '../modules/ai/tokenizer.js';
 import { countModelTokens as controlledCount } from './mock-tokenizer.js';
 vi.mock('../modules/ai/tokenizer.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../modules/ai/tokenizer.js')>();
+  const actual =
+    await importOriginal<typeof import('../modules/ai/tokenizer.js')>();
   const { countModelTokens } = await import('./mock-tokenizer.js');
   return { ...actual, countModelTokens: vi.fn(countModelTokens) };
 });
@@ -49,22 +50,66 @@ afterEach(() => {
 });
 
 describe('model fallback boundaries', () => {
+  it('allows a cold tokenizer load to exceed the provider first-token deadline', async () => {
+    vi.useFakeTimers();
+    vi.mocked(countModelTokens).mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return 100;
+    });
+    const run = vi.fn<ModelRunner>(async function* () {
+      yield 'Answer';
+    });
+    const result = generateAnswer(input(run));
+    await vi.advanceTimersByTimeAsync(201);
+    await expect(result).resolves.toMatchObject({
+      modelId: config.OPENROUTER_MODEL_1,
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('honors request cancellation while a tokenizer is loading', async () => {
+    vi.mocked(countModelTokens).mockImplementation(async ({ signal }) => {
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), {
+          once: true,
+        });
+      });
+      return 100;
+    });
+    const controller = new AbortController();
+    const run = vi.fn<ModelRunner>(async function* () {
+      yield 'Must not run';
+    });
+    const result = generateAnswer(input(run, vi.fn(), controller.signal));
+    controller.abort();
+    await expect(result).rejects.toMatchObject({ code: 'STOPPED' });
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it('recounts the original history with each fallback tokenizer', async () => {
     const messages = [
       { role: 'user' as const, content: 'Earlier question' },
       { role: 'assistant' as const, content: 'Earlier answer' },
       { role: 'user' as const, content: 'Current question' },
     ];
-    vi.mocked(countModelTokens).mockImplementation(async ({ modelId, messages: history }) =>
-      modelId === config.OPENROUTER_MODEL_1 && history.length === 3 ? 2000 : 500,
+    vi.mocked(countModelTokens).mockImplementation(
+      async ({ modelId, messages: history }) =>
+        modelId === config.OPENROUTER_MODEL_1 && history.length === 3
+          ? 2000
+          : 500,
     );
     const run = vi.fn<ModelRunner>(async function* ({ modelId }) {
       if (modelId === config.OPENROUTER_MODEL_1) throw upstream(503);
       yield 'Fallback';
     });
     await generateAnswer({
-      ...input(run), messages,
-      config: { ...config, AI_MAX_CONTEXT_TOKENS: 2048, AI_CONTEXT_SAFETY_MARGIN_TOKENS: 128 },
+      ...input(run),
+      messages,
+      config: {
+        ...config,
+        AI_MAX_CONTEXT_TOKENS: 2048,
+        AI_CONTEXT_SAFETY_MARGIN_TOKENS: 128,
+      },
     });
     expect(run.mock.calls[0]?.[0].messages).toEqual([messages[2]]);
     expect(run.mock.calls[1]?.[0].messages).toEqual(messages);
@@ -72,15 +117,19 @@ describe('model fallback boundaries', () => {
   });
 
   it.each(['too large', 'tokenizer unavailable'])(
-    'skips a candidate before generation when its prompt is %s', async (reason) => {
+    'skips a candidate before generation when its prompt is %s',
+    async (reason) => {
       vi.mocked(countModelTokens).mockImplementation(async ({ modelId }) => {
         if (modelId === config.OPENROUTER_MODEL_1) {
-          if (reason === 'tokenizer unavailable') throw new TokenizerError('Unavailable');
+          if (reason === 'tokenizer unavailable')
+            throw new TokenizerError('Unavailable');
           return 100000;
         }
         return 100;
       });
-      const run = vi.fn<ModelRunner>(async function* () { yield 'Answer'; });
+      const run = vi.fn<ModelRunner>(async function* () {
+        yield 'Answer';
+      });
       const answer = await generateAnswer(input(run));
       expect(answer.modelId).toBe(config.OPENROUTER_MODEL_2);
       expect(run).toHaveBeenCalledTimes(1);

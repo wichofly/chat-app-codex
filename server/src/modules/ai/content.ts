@@ -113,6 +113,7 @@ export function plainText(document: RichNode): string {
     : '';
   return (document.content ?? []).map(plainText).join(separator);
 }
+
 export function paragraph(text: string): RichNode {
   return {
     type: 'doc',

@@ -25,7 +25,10 @@ const instructions =
 const summaryRequest =
   'Now produce the updated concise conversation summary using the supplied historical summary and messages. Return only the summary, with no conversational reply or preamble.';
 
-function createSummaryInput(summary: string, messages: ContextMessage[]): ModelMessage[] {
+function createSummaryInput(
+  summary: string,
+  messages: ContextMessage[],
+): ModelMessage[] {
   return [
     {
       role: 'user',
@@ -102,9 +105,16 @@ export async function prepareConversation({
       return original;
 
     const latest = original.at(-1);
-    if (!latest || (await countModelTokens({
-      modelId, systemPrompt: personaSystemPrompt(persona), messages: [latest], signal: summarySignal,
-    })) > maxInputTokens) return original;
+    if (
+      !latest ||
+      (await countModelTokens({
+        modelId,
+        systemPrompt: personaSystemPrompt(persona),
+        messages: [latest],
+        signal: summarySignal,
+      })) > maxInputTokens
+    )
+      return original;
 
     // Build a contiguous oldest prefix. Never truncate the summary request's
     // source or advance its cursor beyond messages actually summarized.
@@ -128,8 +138,15 @@ export async function prepareConversation({
     const through = selected.at(-1)?.sequence;
     if (!through) return original;
     const summaryInput = createSummaryInput(context.summary, selected);
-    if ((await countModelTokens({ modelId, systemPrompt: instructions,
-      messages: summaryInput, signal: summarySignal })) > maxInputTokens) return original;
+    if (
+      (await countModelTokens({
+        modelId,
+        systemPrompt: instructions,
+        messages: summaryInput,
+        signal: summarySignal,
+      })) > maxInputTokens
+    )
+      return original;
     let summary = '';
     for await (const delta of run({
       modelId,

@@ -115,9 +115,9 @@ A registered user can sign in, start a conversation with an AI assistant, compos
 |---|---|---|
 | 1 | `cohere/north-mini-code:free` | Primary, as requested; code-focused |
 | 2 | `google/gemma-4-26b-a4b-it:free` | General conversational fallback |
-| 3 | `nvidia/nemotron-3-nano-30b-a3b:free` | Suggested third conversational fallback |
+| 3 | `nvidia/nemotron-3.5-lightning:free` | Third conversational fallback; replaced the retired Nano free endpoint on November 13, 2026 |
 
-**Important correction:** `nvidia/nemotron-3.5-content-safety:free` is a moderation/classification model and should **not** be part of the response-generation fallback chain. It can be evaluated separately if moderation becomes a later requirement. The model IDs above were found on OpenRouter in October 2026, but live availability, provider routing, pricing and limits can change.
+**Important correction:** `nvidia/nemotron-3.5-content-safety:free` is a moderation/classification model and should **not** be part of the response-generation fallback chain. It can be evaluated separately if moderation becomes a later requirement. The primary and second model IDs were found on OpenRouter in October 2026; the replacement third model was verified in its catalog on November 13, 2026. Live availability, provider routing, pricing and limits can change.
 
 ### Fallback policy (must be implemented and tested)
 
@@ -344,7 +344,7 @@ TRUST_PROXY_HOPS=0
 # Models (ordered)
 OPENROUTER_MODEL_1="cohere/north-mini-code:free"
 OPENROUTER_MODEL_2="google/gemma-4-26b-a4b-it:free"
-OPENROUTER_MODEL_3="nvidia/nemotron-3-nano-30b-a3b:free"
+OPENROUTER_MODEL_3="nvidia/nemotron-3.5-lightning:free"
 
 # Application-level demo guardrails
 MAX_GENERATIONS_PER_USER_DAY=15

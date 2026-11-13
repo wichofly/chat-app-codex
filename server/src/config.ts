@@ -42,7 +42,7 @@ const environment = z
     OPENROUTER_MODEL_3: z
       .string()
       .min(1)
-      .default('nvidia/nemotron-3-nano-30b-a3b:free'),
+      .default('nvidia/nemotron-3.5-lightning:free'),
     MAX_GENERATIONS_PER_USER_DAY: z.coerce
       .number()
       .int()

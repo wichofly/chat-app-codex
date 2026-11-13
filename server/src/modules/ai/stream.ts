@@ -118,12 +118,25 @@ export function streamHandler(
             writer.write({ type: 'text-delta', id: assistant.id, delta: text });
           } else {
             const run = injectedRunner ?? modelRunner(config);
-            const context = await repository.context(chatId, assistant.sequence);
+            const context = await repository.context(
+              chatId,
+              assistant.sequence,
+            );
             const messages = await prepareConversation({
-              config, run, context,
-              persona: body.persona, signal: cancellation.signal,
-              save: (through, summary) => repository.saveSummary(chatId, assistant.id,
-                assistant.generationId, context.through, through, summary),
+              config,
+              run,
+              context,
+              persona: body.persona,
+              signal: cancellation.signal,
+              save: (through, summary) =>
+                repository.saveSummary(
+                  chatId,
+                  assistant.id,
+                  assistant.generationId,
+                  context.through,
+                  through,
+                  summary,
+                ),
             });
             const result = await generateAnswer({
               config,

@@ -17,6 +17,10 @@ const sources: Record<string, { repo: string; revision: string }> = {
     repo: 'nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16',
     revision: 'bf77c3174f68ad409e1c2aa60daeb46e32d1c606',
   },
+  'nvidia/nemotron-3.5-lightning:free': {
+    repo: 'nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16',
+    revision: 'a9904d24bcc1d289a1950fa9d2b978c47cf903b9',
+  },
 };
 
 export class TokenizerError extends Error {}
@@ -65,7 +69,8 @@ async function loadCounter(modelId: string) {
   const responses = await Promise.all(
     ['tokenizer.json', 'tokenizer_config.json', 'chat_template.jinja'].map(
       (file) =>
-        fetch(`${base}/${file}`, { signal: AbortSignal.timeout(10000) }),
+        // Vocabularies are tens of MB; a cold download can exceed ten seconds.
+        fetch(`${base}/${file}`, { signal: AbortSignal.timeout(60000) }),
     ),
   );
   if (responses.some((response) => !response.ok))
