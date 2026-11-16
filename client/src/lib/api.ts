@@ -2,6 +2,7 @@ import type {
   Chat,
   ChatService,
   ChatSummary,
+  ChatListPage,
   ShareState,
   Snapshot,
 } from './types';
@@ -20,9 +21,10 @@ export const baseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(
   '',
 );
 
-export async function request<T>(
+async function requestEnvelope<T>(
   path: string,
   init: RequestInit = {},
+  unwrap = false,
 ): Promise<T> {
   let response: Response;
   try {
@@ -51,13 +53,28 @@ export async function request<T>(
       response.status,
     );
   }
-  return body?.data ?? body;
+  return unwrap ? (body?.data ?? body) : body;
+}
+
+export async function request<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  return requestEnvelope<T>(path, init, true);
 }
 
 const path = (id: string) => `/chats/${encodeURIComponent(id)}`;
 
 export const api: ChatService = {
   listChats: () => request<ChatSummary[]>('/chats'),
+  listChatPage: async (cursor): Promise<ChatListPage> => {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    const page = await requestEnvelope<{
+      data: ChatSummary[];
+      nextCursor?: string | null;
+    }>(`/chats${query}`);
+    return { chats: page.data, nextCursor: page.nextCursor ?? null };
+  },
   getChat: (id) => request<Chat>(path(id)),
   createChat: () =>
     request<ChatSummary>('/chats', { method: 'POST', body: '{}' }),

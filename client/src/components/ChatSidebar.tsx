@@ -11,9 +11,9 @@ import {
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import { useApp } from '../app/providers';
+import { useChatList } from '../features/chats/use-chat-list';
 import { usePreviewChatList } from '../features/chats/use-preview';
 import type { ChatSummary } from '../lib/types';
-import { useResource } from '../lib/use-resource';
 import { Brand } from './Brand';
 import { ChatActionsDialog } from './ChatActionsDialog';
 
@@ -27,18 +27,11 @@ export function ChatSidebar({
   const { user, service, preview, revision, refresh, notify, signOut } =
     useApp();
   const navigate = useNavigate();
-  const {
-    data: remoteChats,
-    loading: remoteLoading,
-    error: remoteError,
-  } = useResource(
-    () => (preview ? Promise.resolve(null) : service.listChats()),
-    [service, revision],
-  );
+  const remote = useChatList(service, revision, !preview);
   const previewChats = usePreviewChatList();
-  const chats = preview ? previewChats : remoteChats;
-  const loading = !preview && remoteLoading;
-  const error = !preview && remoteError;
+  const chats = preview ? previewChats : remote.chats;
+  const loading = !preview && remote.loading;
+  const error = !preview && remote.error;
   const [action, setAction] = useState<{
     chat: ChatSummary;
     type: 'rename' | 'delete';
@@ -121,13 +114,18 @@ export function ChatSidebar({
           )}
           {error && (
             <div className="sidebar-empty">
-              <p role="alert">Couldn’t load your chats.</p>
-              <button className="text-button" onClick={refresh}>
+              <p role="alert">{remote.error}</p>
+              <button
+                className="text-button"
+                onClick={
+                  remote.nextCursor ? () => void remote.loadMore() : refresh
+                }
+              >
                 Try again
               </button>
             </div>
           )}
-          {chats?.length === 0 && (
+          {!loading && !error && chats?.length === 0 && (
             <div className="sidebar-empty">
               <MessageSquare size={23} />
               <p>A clean slate.</p>
@@ -173,6 +171,15 @@ export function ChatSidebar({
                 ))}
               </div>
             ))}
+          {!preview && remote.nextCursor && !error && (
+            <button
+              className="button button-secondary"
+              disabled={remote.loadingMore}
+              onClick={() => void remote.loadMore()}
+            >
+              {remote.loadingMore ? 'Loading…' : 'Load more conversations'}
+            </button>
+          )}
         </nav>
         <div className="sidebar-bottom">
           {preview && (

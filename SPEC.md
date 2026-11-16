@@ -210,7 +210,7 @@ Base path `/api`. JSON routes accept `Content-Type: application/json` except str
 | `GET` | `/api/health` | Public | Health check; no sensitive configuration |
 | `GET` | `/api/ready` | Public | Bounded database connectivity check; 200 ready, generic 503 otherwise |
 | `ALL` | `/api/auth/*` | Better Auth | Built-in sign-up, sign-in, sign-out and session endpoints |
-| `GET` | `/api/chats` | Required | List own chats; optional cursor/limit |
+| `GET` | `/api/chats` | Required | List own chats; optional cursor/limit (1–100), `{ data: [...], nextCursor: string \| null }` |
 | `POST` | `/api/chats` | Required | Create chat; optional initial title |
 | `GET` | `/api/chats/:chatId` | Owner | Chat metadata and ordered messages |
 | `PATCH` | `/api/chats/:chatId` | Owner | Rename: `{ "title": "..." }` |

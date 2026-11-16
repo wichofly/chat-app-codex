@@ -10,6 +10,8 @@ export default defineConfig({
     proxy: { '/api': 'http://localhost:3001' },
   },
   test: {
+    maxWorkers: 1,
+    testTimeout: 15000,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,

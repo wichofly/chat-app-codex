@@ -1,7 +1,7 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 
 beforeEach(() => {
@@ -10,6 +10,8 @@ beforeEach(() => {
     vi.fn(async () => Response.json(null)),
   );
 });
+
+afterEach(() => vi.useRealTimers());
 
 async function enterPreview() {
   const user = userEvent.setup();
@@ -45,39 +47,43 @@ async function sendSuggestion(
 
 describe('interactive preview pages', () => {
   it('creates a chat from the welcome page, preserves generation across navigation, stops and retries', async () => {
-    const user = await enterPreview();
-    await sendSuggestion(user);
-    const editor = await screen.findByRole('textbox', { name: 'Message' });
+    await enterPreview();
+    // Keep preview generation active while navigating, independently of CPU load.
+    vi.useFakeTimers();
+    const click = async (role: 'button' | 'link', name: string | RegExp) => {
+      await act(async () => {
+        fireEvent.click(screen.getByRole(role, { name }));
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    };
+    await click('button', /Find a fresh angle/);
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    await click('button', 'Send message');
+    const editor = screen.getByRole('textbox', { name: 'Message' });
     expect(editor).toHaveAttribute('contenteditable', 'false');
     expect(screen.getByText('Generating…')).toBeInTheDocument();
     expect(screen.getAllByRole('article', { name: 'You' })).toHaveLength(1);
-    await user.click(
-      screen.getByRole('link', { name: 'Ideas for a weekend project' }),
-    );
+    await click('link', 'Ideas for a weekend project');
     expect(
-      await screen.findByRole('heading', {
+      screen.getByRole('heading', {
         name: 'Ideas for a weekend project',
       }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Stop generation' }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'New chat' }));
-    await user.click(
-      await screen.findByRole('button', { name: 'Stop generation' }),
-    );
+    await click('link', 'New chat');
+    await click('button', 'Stop generation');
     expect(screen.getByText('Generation stopped.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Retry response' }));
+    await click('button', 'Retry response');
     expect(screen.getAllByRole('article', { name: 'You' })).toHaveLength(1);
     expect(
       screen.getAllByRole('article', { name: 'Thread assistant' }),
     ).toHaveLength(1);
-    await user.click(screen.getByRole('button', { name: 'Stop generation' }));
-    await user.click(screen.getByRole('button', { name: 'Close preview' }));
-    await user.click(
-      await screen.findByRole('button', { name: 'Explore the UI preview' }),
-    );
-    await screen.findByRole('heading', { name: /Where shall we/ });
+    await click('button', 'Stop generation');
+    await click('button', 'Close preview');
+    await click('button', 'Explore the UI preview');
+    expect(screen.getByRole('heading', { name: /Where shall we/ })).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'New chat' }),
     ).not.toBeInTheDocument();

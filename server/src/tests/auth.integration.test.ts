@@ -7,6 +7,7 @@ import { createApp } from '../app.js';
 import { readConfig } from '../config.js';
 import { createAuth } from '../lib/auth.js';
 import { createPrisma } from '../lib/prisma.js';
+import { paragraph } from '../modules/ai/content.js';
 
 const testUrl = process.env.TEST_DATABASE_URL;
 if (!testUrl)
@@ -186,6 +187,192 @@ describe('Better Auth + PostgreSQL + protected chat routes', () => {
       .set('Origin', 'https://evil.example')
       .send({})
       .expect(403);
+  });
+  it('paginates more than 100 owned chats, including tied timestamps and a deleted cursor row', async () => {
+    const ids = Array.from({ length: 103 }, () => randomUUID());
+    const date = new Date('2026-01-01T00:00:00Z');
+    await database.chat.createMany({
+      data: ids.map((id) => ({
+        id,
+        userId: ownerId,
+        title: 'Pagination fixture',
+        updatedAt: date,
+      })),
+    });
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const result: request.Response = await agent
+        .get('/api/chats')
+        .query({ limit: 25, ...(cursor ? { cursor } : {}) })
+        .expect(200);
+      for (const chat of result.body.data) {
+        expect(seen.has(chat.id)).toBe(false);
+        seen.add(chat.id);
+      }
+      cursor = result.body.nextCursor;
+      if (seen.size === 25) {
+        // A cursor describes the sort position; deleting its row must not break later pages.
+        await database.chat.delete({
+          where: { id: result.body.data.at(-1).id },
+        });
+      }
+    } while (cursor);
+    expect(seen.size).toBe(104); // 103 fixtures plus the original owned chat.
+    await agent.get('/api/chats').query({ cursor: 'invalid' }).expect(400);
+    await agent.get('/api/chats').query({ limit: 101 }).expect(400);
+    await database.chat.deleteMany({ where: { id: { in: ids } } });
+  });
+  it('persists private-safe snapshots, rotates/revokes tokens and cascades deletion', async () => {
+    const created = await agent
+      .post('/api/chats')
+      .set('Origin', config.CLIENT_ORIGIN)
+      .send({ title: 'Snapshot title' })
+      .expect(201);
+    const id: string = created.body.data.id;
+    await database.chat.update({
+      where: { id },
+      data: { contextSummary: 'PRIVATE SUMMARY', contextThroughSequence: 2 },
+    });
+    await database.message.createMany({
+      data: [
+        {
+          chatId: id,
+          sequence: 1,
+          role: 'USER',
+          status: 'COMPLETED',
+          plainText: 'Public question',
+          contentJson: paragraph('Public question'),
+          clientMessageId: randomUUID(),
+        },
+        {
+          chatId: id,
+          sequence: 2,
+          role: 'ASSISTANT',
+          status: 'COMPLETED',
+          plainText: 'Public answer',
+          contentJson: paragraph('Public answer'),
+          modelId: 'PRIVATE MODEL',
+          generationId: randomUUID(),
+        },
+        {
+          chatId: id,
+          sequence: 3,
+          role: 'ASSISTANT',
+          status: 'FAILED',
+          plainText: 'PRIVATE FAILED',
+        },
+        {
+          chatId: id,
+          sequence: 4,
+          role: 'ASSISTANT',
+          status: 'PENDING',
+          plainText: 'PRIVATE PENDING',
+        },
+      ],
+    });
+    const sharePath = `/api/chats/${id}/share`;
+    expect((await agent.get(sharePath).expect(200)).body.data).toEqual({
+      url: null,
+    });
+    await request(app)
+      .post(sharePath)
+      .set('Origin', config.CLIENT_ORIGIN)
+      .send({})
+      .expect(401);
+    await agent.post(sharePath).send({}).expect(403);
+    const outsider = request.agent(app);
+    await outsider
+      .post('/api/auth/sign-up/email')
+      .set('Origin', config.CLIENT_ORIGIN)
+      .send({ name: 'Other reader', email: `share-${email}`, password })
+      .expect(200);
+    for (const method of ['get', 'post', 'delete'] as const)
+      await outsider[method](sharePath)
+        .set('Origin', config.CLIENT_ORIGIN)
+        .send({})
+        .expect(404);
+    const create = () =>
+      agent
+        .post(sharePath)
+        .set('Origin', config.CLIENT_ORIGIN)
+        .send({})
+        .expect(200);
+    const first = await create();
+    const publicPath = new URL(first.body.data.url).pathname.replace(
+      '/shared/',
+      '/api/shared/',
+    );
+    const snapshot = await request(app).get(publicPath).expect(200);
+    expect(snapshot.headers['cache-control']).toBe('no-store');
+    expect(snapshot.headers['x-robots-tag']).toBe('noindex, nofollow');
+    expect(snapshot.body.data).toEqual({
+      title: 'Snapshot title',
+      messages: [
+        { role: 'USER', contentJson: paragraph('Public question') },
+        { role: 'ASSISTANT', contentJson: paragraph('Public answer') },
+      ],
+      sharedAt: first.body.data.sharedAt,
+    });
+    expect(JSON.stringify(snapshot.body)).not.toContain('PRIVATE');
+    expect(
+      (await request(app).get(sharePath).set('Cookie', cookie).expect(200)).body
+        .data,
+    ).toEqual(first.body.data);
+    await database.chat.update({
+      where: { id },
+      data: { title: 'Later title' },
+    });
+    await database.message.create({
+      data: {
+        chatId: id,
+        sequence: 5,
+        role: 'USER',
+        status: 'COMPLETED',
+        plainText: 'Later private message',
+        contentJson: paragraph('Later private message'),
+      },
+    });
+    expect((await request(app).get(publicPath).expect(200)).body).toEqual(
+      snapshot.body,
+    );
+    const rotations = await Promise.all([create(), create()]);
+    await request(app).get(publicPath).expect(404);
+    const active = (await agent.get(sharePath).expect(200)).body.data.url;
+    expect(
+      rotations.filter((result) => result.body.data.url === active),
+    ).toHaveLength(1);
+    for (const result of rotations) {
+      if (result.body.data.url !== active)
+        await request(app).get(new URL(result.body.data.url).pathname.replace('/shared/', '/api/shared/')).expect(404);
+    }
+    const activePath = new URL(active).pathname.replace(
+      '/shared/',
+      '/api/shared/',
+    );
+    expect(
+      (await request(app).get(activePath).expect(200)).body.data.title,
+    ).toBe('Later title');
+    await agent
+      .delete(sharePath)
+      .set('Origin', config.CLIENT_ORIGIN)
+      .expect(204);
+    await request(app).get(activePath).expect(404);
+    expect((await agent.get(sharePath).expect(200)).body.data.url).toBeNull();
+    const last = await create();
+    await agent
+      .delete(`/api/chats/${id}`)
+      .set('Origin', config.CLIENT_ORIGIN)
+      .expect(204);
+    await request(app)
+      .get(
+        new URL(last.body.data.url).pathname.replace(
+          '/shared/',
+          '/api/shared/',
+        ),
+      )
+      .expect(404);
+    expect(await database.shareLink.count({ where: { chatId: id } })).toBe(0);
   });
   it('signs out, revokes the session cookie server-side, and accepts a new sign-in', async () => {
     await agent

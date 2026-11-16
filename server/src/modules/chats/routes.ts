@@ -10,6 +10,8 @@ import { messageRepository } from '../ai/repository.js';
 import { streamHandler } from '../ai/stream.js';
 import { chatRepository } from './repository.js';
 import { chatService } from './service.js';
+import { chatListQuery } from './pagination.js';
+import { sharingService } from '../sharing/service.js';
 
 const title = z
   .string()
@@ -33,6 +35,7 @@ export function chatRoutes(
 ) {
   const router = Router();
   const service = chatService(chatRepository(database));
+  const sharing = sharingService(database, config);
   const messageStore = messageRepository(database, config);
   const stream = streamHandler(database, config, runModel);
   router.use(requireSession(auth));
@@ -49,8 +52,10 @@ export function chatRoutes(
     }
     next();
   });
-  router.get('/', async (_request, response) => {
-    response.json({ data: await service.list(userId(response)) });
+  router.get('/', async (request, response) => {
+    response.json(
+      await service.list(userId(response), chatListQuery.parse(request.query)),
+    );
   });
   router.post('/', async (request, response) => {
     const data = z
@@ -138,13 +143,26 @@ export function chatRoutes(
       },
     });
   });
-  router.all('/:chatId/share', async (request, response) => {
-    await service.get(chatId.parse(request.params.chatId), userId(response));
-    throw new HttpError(
-      503,
-      'FEATURE_UNAVAILABLE',
-      'This feature is not connected yet.',
-    );
+  router.get('/:chatId/share', async (request, response) => {
+    response.json({
+      data: await sharing.get(
+        chatId.parse(request.params.chatId),
+        userId(response),
+      ),
+    });
+  });
+  router.post('/:chatId/share', async (request, response) => {
+    z.object({}).strict().parse(request.body);
+    response.json({
+      data: await sharing.create(
+        chatId.parse(request.params.chatId),
+        userId(response),
+      ),
+    });
+  });
+  router.delete('/:chatId/share', async (request, response) => {
+    await sharing.revoke(chatId.parse(request.params.chatId), userId(response));
+    response.status(204).end();
   });
   return router;
 }

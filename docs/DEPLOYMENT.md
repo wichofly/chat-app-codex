@@ -1,6 +1,12 @@
 # Vercel frontend, Render API and Neon database
 
-The deployment configuration uses Vercel for the frontend, a free Render web service for the Express API, and Neon for PostgreSQL. Render's API sleeps when idle. This is a demo setup; durable public sharing, email verification and password recovery remain unfinished or disabled.
+The deployment configuration uses Vercel for the frontend, a free Render web service for the Express API, and Neon for PostgreSQL. Render's API sleeps when idle. This is a demo setup; email verification and password recovery remain disabled. Durable public sharing is implemented locally and awaits verification and deployment.
+
+## Prepared sharing and pagination release — November 16, 2026
+
+Migration `20261116000000_sharing_and_chat_pagination` adds the `ShareLink` table and a composite chat pagination index. Deploy the API with this migration before publishing the updated frontend. Existing chat list consumers still receive a `data` array; the updated sidebar reads `nextCursor` to load older pages. Apply migrations using the existing startup command; never reset an existing database. This release has not been deployed or verified in a real browser or a designated PostgreSQL test database.
+
+Before publication, run `npm run test:integration` with a dedicated `TEST_DATABASE_URL`, then verify owner share confirmation, unauthenticated read-only access, unchanged snapshots after new messages/renames, refresh revoking the old URL, Disable link, and chat deletion. Verify older chats remain accessible after loading more than 100 conversations. Public snapshots must exclude account/model/action metadata and private summaries, retain no-store/noindex headers, and reject invalid/revoked tokens with the same 404. The public limiter is per process; keep the existing single API instance assumption.
 
 Public URLs: frontend `https://thread-chat-lovat.vercel.app` and API `https://thread-api-55l7.onrender.com`. Neon stores production data in `thread_production`, separate from the local development database. The old Render database `thread-chat-db` is retained as a read-only recovery copy and expires on **November 30, 2026**. The October 31 and November 1 release records below describe the original Render database deployment.
 
@@ -126,7 +132,7 @@ Use disposable test data and a bounded live model request:
 3. Send one short non-private prompt. Confirm incremental text, selected model metadata, and persistence after refresh. In a separate short test, Stop should preserve a failed partial reply and Retry should reuse the prompt once. Retain the per-account daily limit.
 4. Exercise fallback with mocked providers locally and in staging, including failures before text, errors after partial text, and cancellation. Production smoke tests verify healthy delivery; they do not prove all fallback branches. Avoid deliberate provider outages or repeated quota-consuming retries in production.
 5. Check network requests/console errors and route refreshes at desktop and mobile widths. Check API logs for model IDs/failure categories without private prompts, keys, cookies, or password values.
-6. Record the deployed revision, URLs, test outcomes, and any failures. The sharing API still returns unavailable/not-found responses; memory-only preview links are not durable public links.
+6. Record the deployed revision, URLs, test outcomes, and any failures. Until the prepared sharing release is deployed, the live sharing API still returns unavailable/not-found responses. After deployment, verify durable links in a separate signed-out browser; memory-only preview links remain separate.
 
 ## References
 

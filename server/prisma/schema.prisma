@@ -81,10 +81,22 @@ model Chat {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
   messages               Message[]
+  shareLink              ShareLink?
   contextSummary         String?
   contextThroughSequence Int       @default(0)
 
-  @@index([userId, updatedAt])
+  @@index([userId, updatedAt, id])
+}
+
+model ShareLink {
+  id           String    @id @default(uuid()) @db.Uuid
+  chatId       String    @unique @db.Uuid
+  chat         Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  token        String    @unique
+  snapshotJson Json
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  revokedAt    DateTime?
 }
 
 enum MessageRole {

@@ -10,6 +10,7 @@ import { errorHandler, HttpError } from './middleware/errors.js';
 import { AUTH_CLIENT_IP_HEADER, clientIp } from './middleware/client-ip.js';
 import type { ModelRunner } from './modules/ai/provider.js';
 import { chatRoutes } from './modules/chats/routes.js';
+import { publicSharingRoutes } from './modules/sharing/routes.js';
 
 export function createApp({
   config,
@@ -109,14 +110,7 @@ export function createApp({
     chatRoutes(database, auth, trustedOrigins, config, runModel),
   );
 
-  app.use('/api/shared', (_request, response) => {
-    response
-      .set('X-Robots-Tag', 'noindex, nofollow')
-      .status(404)
-      .json({
-        error: { code: 'NOT_FOUND', message: 'Shared conversation not found.' },
-      });
-  });
+  app.use('/api/shared', publicSharingRoutes(database, config));
 
   app.use((_request, response) => {
     response

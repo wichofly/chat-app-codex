@@ -11,6 +11,43 @@ const chat = { id: 'chat', title: 'Loaded conversation', createdAt: '2026-10-28T
 function open(path: string) { return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>) }
 
 describe('page states', () => {
+  it('requires share confirmation and uses the API to rotate and disable a durable link', async () => {
+    const mutations: string[] = [];
+    let sharedUrl: string | null = null;
+    let version = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/auth/get-session')) return Response.json(session);
+      if (url.endsWith('/chats')) return Response.json({ data: [] });
+      if (url.endsWith('/share')) {
+        if (init?.method === 'POST') {
+          mutations.push('create');
+          sharedUrl = `https://example.test/shared/token-${++version}`;
+        }
+        if (init?.method === 'DELETE') {
+          mutations.push('revoke');
+          sharedUrl = null;
+          return new Response(null, { status: 204 });
+        }
+        return Response.json({ data: { url: sharedUrl } });
+      }
+      return Response.json({ data: chat });
+    }));
+    const user = userEvent.setup();
+    open('/chats/chat');
+    await user.click(await screen.findByRole('button', { name: 'Share' }));
+    expect(screen.getByText('Anyone with the link can read all completed messages.')).toBeInTheDocument();
+    const confirm = await screen.findByRole('button', { name: 'Confirm & create link' });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(mutations).toEqual([]);
+    await user.click(confirm);
+    expect(await screen.findByRole('textbox', { name: 'Current snapshot link' })).toHaveValue('https://example.test/shared/token-1');
+    await user.click(screen.getByRole('button', { name: 'Refresh shared snapshot' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Current snapshot link' })).toHaveValue('https://example.test/shared/token-2'));
+    await user.click(screen.getByRole('button', { name: 'Disable link' }));
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Current snapshot link' })).not.toBeInTheDocument());
+    expect(mutations).toEqual(['create', 'create', 'revoke']);
+  });
   it('disables the composer and hides owner actions until a conversation finishes loading', async () => {
     let resolveChat!: (response: Response) => void
     const pending = new Promise<Response>(resolve => { resolveChat = resolve })

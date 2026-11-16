@@ -1,6 +1,6 @@
 # Thread · Chat App
 
-React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/password authentication, PostgreSQL/Prisma persistence, and streamed OpenRouter responses through AI SDK 7. Requirements are defined in [SPEC.md](SPEC.md); current priorities are in [ROADMAP.md](ROADMAP.md). Durable public sharing remains future work.
+React 19 + TypeScript chat UI with a separate Express 5 API, Better Auth email/password authentication, PostgreSQL/Prisma persistence, durable public snapshots, and streamed OpenRouter responses through AI SDK 7. Requirements are defined in [SPEC.md](SPEC.md); current priorities are in [ROADMAP.md](ROADMAP.md).
 
 **Live demo:** [Open Thread](https://thread-chat-lovat.vercel.app). Production data is stored in Neon, separately from local accounts and conversations. The free Render API may take about a minute to wake after inactivity. See the [release verification and hosting notes](docs/DEPLOYMENT.md).
 
@@ -51,7 +51,7 @@ npm test        # UI tests and server checks that do not require PostgreSQL
 npm run typecheck --workspace server # Include server test code in the TypeScript check
 ```
 
-For real database integration tests, set `TEST_DATABASE_URL` to a dedicated PostgreSQL test database, then run `npm run test:integration`. The suites migrate unique `thread_auth_test_...` and `thread_ai_test_...` schemas and drop only those schemas afterward. They test authentication/ownership, persisted messages, idempotent replay/retry, concurrent sends, abandoned pending recovery, daily budgets, HTTP disconnect cancellation and explicit Stop with mocked models. Never use a production database for tests. No lint command is currently configured. If client tests time out under parallel worker load, run `npm run test --workspace client -- --maxWorkers=1`.
+For real database integration tests, set `TEST_DATABASE_URL` to a dedicated PostgreSQL test database, then run `npm run test:integration`. The suites migrate unique `thread_auth_test_...` and `thread_ai_test_...` schemas and drop only those schemas afterward. They test authentication/ownership, persisted messages, idempotent replay/retry, concurrent sends, abandoned pending recovery, daily budgets, HTTP disconnect cancellation, explicit Stop with mocked models, public snapshot lifecycle and chat pagination. Never use a production database for tests. No lint command is currently configured. Client tests use one worker by default to avoid timeouts under parallel jsdom load.
 
 ## Connect OpenRouter
 
@@ -99,7 +99,8 @@ Apply the new `20261111000000_conversation_summary` migration with `npm run db:m
 - Shared view adds `noindex, nofollow` metadata while mounted. Invalid or revoked tokens show the same unavailable page.
 - API adapters for the spec’s session, auth, chat CRUD and sharing endpoints, using credentialed requests.
 - Better Auth React client with email/password sign-up, sign-in, session refresh/restoration, and sign-out. Auth requests are mounted before Express body parsing; passwords are hashed by Better Auth and sessions are persisted in PostgreSQL.
-- Real ownership-protected chat CRUD and message persistence, streaming responses, pre-content fallback, Stop, Retry, and per-account usage limits. Durable sharing operations still return a clear 503 after ownership checks.
+- Real ownership-protected chat CRUD and message persistence, streaming responses, pre-content fallback, Stop, Retry, and per-account usage limits. The sidebar loads conversations in pages of 100 with **Load more conversations** for older chats.
+- Durable public sharing after explicit confirmation: fixed title/completed-message snapshots, secure random tokens, atomic refresh/rotation, revocation and deletion invalidation. Public reads have no account metadata, use no-store/noindex headers and are limited to 60 requests per visitor per minute on the single API instance.
 
 **Real AI requires the server's OpenRouter key.** The separate UI preview continues to use fixed, clearly labeled sample responses without calling a model. Preview share links work only within the active preview tab; they are not public, durable links. Sign out/leave preview before trying real API authentication.
 
@@ -119,7 +120,7 @@ The preview subscription and generation interfaces are isolated from the product
 
 The default API base is `/api`; Vite proxies it to `http://localhost:3001`. To use another origin, copy `client/.env.example` to `client/.env.local` and set `VITE_API_BASE_URL`. Never put server secrets in a `VITE_` variable.
 
-`client/src/lib/api.ts` expects `{ data: ... }` for application responses and `{ error: { code, message } }` for errors. Better Auth’s standard session and email/password endpoint response shapes are also supported. Chat detail expects `{ id, title, createdAt, updatedAt, messages }`; sharing state expects `{ url: string | null, sharedAt?: string }`; public snapshots expect `{ title, messages, sharedAt }`. List expects a data array, with pagination deferred.
+`client/src/lib/api.ts` expects `{ data: ... }` for application responses and `{ error: { code, message } }` for errors. Better Auth’s standard session and email/password endpoint response shapes are also supported. Chat detail expects `{ id, title, createdAt, updatedAt, messages }`; sharing state expects `{ url: string | null, sharedAt?: string }`; public snapshots expect `{ title, messages, sharedAt }`. Chat lists return `{ data: [...], nextCursor: string | null }`; pass `cursor` on the next request and optionally `limit` (1–100). Cursors encode the last timestamp/ID, so equal timestamps and deleted cursor rows remain supported. Refreshing the list starts again from the newest page.
 
 The API mounts Better Auth at `/api/auth/*splat`, uses its Prisma PostgreSQL adapter, and protects chat routes with `auth.api.getSession`. CORS and mutation origins are allowlisted; auth mutations are limited both by Better Auth and a per-IP Express limiter. Private responses use `Cache-Control: no-store`. Proxy trust is off by default; `TRUST_PROXY_HOPS` configures a bounded ingress hop count and the Render Blueprint uses 1. Cookie caching is disabled so database revocation takes effect on subsequent requests. `/api/health` checks process liveness; `/api/ready` checks database connectivity with a three-second deadline and a safe 503 on failure.
 
@@ -127,7 +128,7 @@ The React client uses the official Better Auth SDK in `client/src/lib/auth-clien
 
 Hosted auth rate limits use a normalized visitor IP shared by Express and Better Auth. Vercel adds a private verification header using `TRUSTED_PROXY_SECRET`; Render uses the first address in Vercel's sanitized `X-Forwarded-For` chain only when that secret matches. Configure the same private random value on both hosts, never with a `VITE_` prefix. With that setting enabled, direct origin API requests are rejected except for health/readiness probes. Without it, local access uses the actual socket IP, ignoring forwarded identities. Caller-supplied internal IP headers are overwritten. Streaming responses explicitly retain `Cache-Control: no-store`.
 
-Still required for the full spec: durable sharing snapshots/tokens, public-share rate limits, and their integration tests. The preview generator is never a production data store.
+After pulling this update, run `npm run db:migrate --workspace server` before starting the API. Migration `20261116000000_sharing_and_chat_pagination` creates `ShareLink` and the chat pagination index. Database integration coverage includes snapshot immutability, ownership, concurrent rotation, revocation, chat deletion and lists beyond 100 chats; run it only against a dedicated `TEST_DATABASE_URL`. The preview generator is never a production data store. The new sharing release still needs PostgreSQL integration execution and authenticated browser verification before deployment.
 
 Production SPA hosting must rewrite non-asset browser routes to `index.html`. The Vercel/Render setup keeps `VITE_API_BASE_URL=/api` and proxies API requests through Vercel before the SPA fallback. Both server auth/origin URLs use the stable frontend origin. Render runs migrations at startup against Neon because free web services have no pre-deploy command. Use a direct TLS database connection with `sslmode=verify-full` for this single API instance and keep production data separate from development. Set a private random secret and `NODE_ENV=production`; HTTPS is required and auth cookies are Secure, HTTP-only, SameSite=Lax. For local `npm run preview` on another port, configure and rebuild with the direct API base URL and allow that exact preview origin on the server. Public share responses must retain `noindex, nofollow` and no-store when implemented.
 

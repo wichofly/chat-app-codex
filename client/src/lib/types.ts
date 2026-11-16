@@ -32,8 +32,10 @@ export type Snapshot = {
   sharedAt: string;
 };
 export type ShareState = { url: string | null; sharedAt?: string };
+export type ChatListPage = { chats: ChatSummary[]; nextCursor: string | null };
 export interface ChatService {
   listChats(): Promise<ChatSummary[]>;
+  listChatPage(cursor?: string): Promise<ChatListPage>;
   getChat(id: string): Promise<Chat>;
   createChat(): Promise<ChatSummary>;
   renameChat(id: string, title: string): Promise<void>;

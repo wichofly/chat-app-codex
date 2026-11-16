@@ -252,6 +252,10 @@ export function createPreviewService(): PreviewChatService {
       assertActive();
       return structuredClone(list);
     },
+    listChatPage: async () => {
+      assertActive();
+      return { chats: structuredClone(list), nextCursor: null };
+    },
     getChat: async (id) => structuredClone(find(id).chat),
     createChat: async () => {
       assertActive();
