@@ -5,6 +5,10 @@ import { z } from 'zod';
 
 // Pin tokenizer and chat template together. Each model needs its own vocabulary.
 const sources: Record<string, { repo: string; revision: string }> = {
+  'google/gemma-4-31b-it:free': {
+    repo: 'google/gemma-4-31B-it',
+    revision: '842da3794eaa0b77d5f08bae87a17459d91ff475',
+  },
   'cohere/north-mini-code:free': {
     repo: 'CohereLabs/North-Mini-Code-1.0',
     revision: 'd11e61a842617a22dc328552fa5bb86231ee4f37',
@@ -55,6 +59,8 @@ export function promptTokenCounter(
       ...config,
       messages: conversation,
       add_generation_prompt: true,
+      // Match the provider's disabled optional reasoning and generation prefix.
+      enable_thinking: false,
     });
     return tokenizer.encode(prompt, { add_special_tokens: false }).ids.length;
   };

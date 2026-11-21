@@ -34,7 +34,7 @@ const environment = z
     OPENROUTER_MODEL_1: z
       .string()
       .min(1)
-      .default('cohere/north-mini-code:free'),
+      .default('nvidia/nemotron-3.5-lightning:free'),
     OPENROUTER_MODEL_2: z
       .string()
       .min(1)
@@ -42,7 +42,7 @@ const environment = z
     OPENROUTER_MODEL_3: z
       .string()
       .min(1)
-      .default('nvidia/nemotron-3.5-lightning:free'),
+      .default('google/gemma-4-31b-it:free'),
     MAX_GENERATIONS_PER_USER_DAY: z.coerce
       .number()
       .int()

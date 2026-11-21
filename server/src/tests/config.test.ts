@@ -41,6 +41,9 @@ describe('authentication configuration', () => {
       CLIENT_ORIGIN: 'http://localhost:5173',
       BETTER_AUTH_URL: 'http://localhost:3001',
       TRUST_PROXY_HOPS: 0,
+      OPENROUTER_MODEL_1: 'nvidia/nemotron-3.5-lightning:free',
+      OPENROUTER_MODEL_2: 'google/gemma-4-26b-a4b-it:free',
+      OPENROUTER_MODEL_3: 'google/gemma-4-31b-it:free',
       AI_MAX_CONTEXT_TOKENS: 32768,
       AI_CONTEXT_SAFETY_MARGIN_TOKENS: 1024,
     });
@@ -60,14 +63,25 @@ describe('authentication configuration', () => {
     ).toThrow('CLIENT_ORIGIN');
   });
   it('accepts only a bounded proxy hop count', () => {
-    expect(readConfig({ ...input, TRUST_PROXY_HOPS: '1' }).TRUST_PROXY_HOPS).toBe(1);
+    expect(
+      readConfig({ ...input, TRUST_PROXY_HOPS: '1' }).TRUST_PROXY_HOPS,
+    ).toBe(1);
     for (const value of ['true', '-1', '1.5', '6'])
-      expect(() => readConfig({ ...input, TRUST_PROXY_HOPS: value })).toThrow('TRUST_PROXY_HOPS');
+      expect(() => readConfig({ ...input, TRUST_PROXY_HOPS: value })).toThrow(
+        'TRUST_PROXY_HOPS',
+      );
   });
   it('requires a strong shared proxy secret when one is configured', () => {
     expect(readConfig(input).TRUSTED_PROXY_SECRET).toBeUndefined();
-    expect(() => readConfig({ ...input, TRUSTED_PROXY_SECRET: 'short' })).toThrow('TRUSTED_PROXY_SECRET');
-    expect(readConfig({ ...input, TRUSTED_PROXY_SECRET: 'test-only-proxy-secret-with-32-characters' }).TRUSTED_PROXY_SECRET).toBe('test-only-proxy-secret-with-32-characters');
+    expect(() =>
+      readConfig({ ...input, TRUSTED_PROXY_SECRET: 'short' }),
+    ).toThrow('TRUSTED_PROXY_SECRET');
+    expect(
+      readConfig({
+        ...input,
+        TRUSTED_PROXY_SECRET: 'test-only-proxy-secret-with-32-characters',
+      }).TRUSTED_PROXY_SECRET,
+    ).toBe('test-only-proxy-secret-with-32-characters');
   });
   it('requires HTTPS for production cookies', () => {
     expect(() => readConfig({ ...input, NODE_ENV: 'production' })).toThrow(

@@ -18,6 +18,7 @@ export class GenerationError extends Error {
     public code: string,
     message: string,
     public retryable = false,
+    public finishReason?: string,
   ) {
     super(message);
   }
@@ -52,7 +53,9 @@ export function modelRunner(config: Config): ModelRunner {
   }) {
     let completed = false;
     const result = streamText({
-      model: provider.chat(modelId),
+      // Optional reasoning consumes the same output budget as the visible answer.
+      // These text-only chat/summary requests reserve that budget for answer text.
+      model: provider.chat(modelId, { reasoning: { enabled: false, effort: 'none' } }),
       messages,
       maxRetries: 0,
       streamRetries: 0,
@@ -82,7 +85,13 @@ export function modelRunner(config: Config): ModelRunner {
       )
         throw new GenerationError(
           'INCOMPLETE',
-          'This response could not be completed.',
+          part.finishReason === 'length'
+            ? 'This response reached its output token limit. Try asking for a shorter answer.'
+            : part.finishReason === 'content-filter'
+              ? 'The AI provider could not complete this response because of its content filter.'
+              : 'The AI provider interrupted this response. Please retry.',
+          part.finishReason === 'error' || part.finishReason === 'interrupted',
+          part.finishReason,
         );
       if (part.type === 'finish') completed = true;
     }
@@ -90,6 +99,8 @@ export function modelRunner(config: Config): ModelRunner {
       throw new GenerationError(
         'INCOMPLETE',
         'This response could not be completed.',
+        true,
+        'missing-finish',
       );
   };
 }
@@ -127,7 +138,9 @@ function classify(error: unknown): GenerationError {
       );
     return new GenerationError(
       status === 429 ? 'PROVIDER_RATE_LIMIT' : 'PROVIDER_UNAVAILABLE',
-      'The AI provider is temporarily unavailable. Please try again.',
+      status === 429
+        ? 'The AI provider is rate limited. Please wait and try again later.'
+        : 'The AI provider is temporarily unavailable. Please try again.',
       status === undefined ||
         status === 200 ||
         status === 408 ||
@@ -248,7 +261,12 @@ export async function generateAnswer({
       lastError = classify(
         candidate.signal.aborted ? candidate.signal.reason : error,
       );
-      console.warn('AI attempt failed', { modelId, category: lastError.code });
+      console.warn('AI attempt failed', {
+        modelId,
+        category: lastError.code,
+        ...(lastError.finishReason ? { finishReason: lastError.finishReason } : {}),
+        hasText: text.length > 0,
+      });
       if (text || !lastError.retryable) throw lastError;
     } finally {
       clearTimeout(timer);

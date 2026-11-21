@@ -113,11 +113,11 @@ A registered user can sign in, start a conversation with an AI assistant, compos
 
 | Priority | Model ID | Use |
 |---|---|---|
-| 1 | `cohere/north-mini-code:free` | Primary, as requested; code-focused |
+| 1 | `nvidia/nemotron-3.5-lightning:free` | Primary; verified free text reply on November 21, 2026 with optional reasoning disabled |
 | 2 | `google/gemma-4-26b-a4b-it:free` | General conversational fallback |
-| 3 | `nvidia/nemotron-3.5-lightning:free` | Third conversational fallback; replaced the retired Nano free endpoint on November 13, 2026 |
+| 3 | `google/gemma-4-31b-it:free` | Third conversational fallback, with its own pinned native tokenizer/template |
 
-**Important correction:** `nvidia/nemotron-3.5-content-safety:free` is a moderation/classification model and should **not** be part of the response-generation fallback chain. It can be evaluated separately if moderation becomes a later requirement. The primary and second model IDs were found on OpenRouter in October 2026; the replacement third model was verified in its catalog on November 13, 2026. Live availability, provider routing, pricing and limits can change.
+**Availability update — November 21, 2026:** the originally requested `cohere/north-mini-code:free` is absent from OpenRouter's catalog and returns model-unavailable errors. Nemotron is promoted from third to first after a successful bounded live reply, and Gemma 31B replaces the retired entry. All three current IDs have zero prompt/completion pricing in the catalog. Both Gemma endpoints can still be rate limited; catalog presence does not guarantee immediate capacity. `nvidia/nemotron-3.5-content-safety:free` is a moderation/classification model and must not enter this response-generation chain. Live availability, routing, pricing and limits can change.
 
 ### Fallback policy (must be implemented and tested)
 
@@ -129,6 +129,7 @@ A registered user can sign in, start a conversation with an AI assistant, compos
 6. If all candidates fail before output, return a clean error, no fabricated answer, and a Retry option.
 7. Persist/log the selected model and a non-sensitive failure category for debugging. Never log OpenRouter keys or full private prompts by default.
 8. Run a lightweight availability/smoke check during setup and before demo day; do not hardcode that free models will always be available.
+9. Disable optional reasoning for chat and summary requests to preserve the bounded output budget for visible text. Output tokens can otherwise be consumed by reasoning before any answer appears. An output-limit or content-filter finish remains failed; interrupted/error/missing-finish streams may fall back only before answer text. Log the finish reason and whether answer text was sent, never reasoning or conversation content.
 
 **Free-tier reality:** OpenRouter free model endpoints are rate limited (its published free-tier guidance currently states 20 requests/minute and 50 requests/day for standard free access, with different quotas for qualifying funded accounts). Failed fallback attempts can consume quota too. Add a configurable per-account app usage limit and a friendly quota-exhausted error; these are demo defaults, not guarantees about OpenRouter's limits.
 
@@ -342,9 +343,9 @@ TRUST_PROXY_HOPS=0
 # TRUSTED_PROXY_SECRET="generate-a-random-secret-at-least-32-characters"
 
 # Models (ordered)
-OPENROUTER_MODEL_1="cohere/north-mini-code:free"
+OPENROUTER_MODEL_1="nvidia/nemotron-3.5-lightning:free"
 OPENROUTER_MODEL_2="google/gemma-4-26b-a4b-it:free"
-OPENROUTER_MODEL_3="nvidia/nemotron-3.5-lightning:free"
+OPENROUTER_MODEL_3="google/gemma-4-31b-it:free"
 
 # Application-level demo guardrails
 MAX_GENERATIONS_PER_USER_DAY=15
@@ -419,7 +420,7 @@ This specification picks sensible defaults; change them before development only 
 1. **Shared content: snapshot vs live.** Default: snapshot (safer; prevents silently exposing future messages).
 2. **Meaning of edit.** Default: rename chat only; editing previously submitted prompts deferred.
 3. **Assistant formatting.** Default: free-form Markdown safely converted to TipTap JSON after streaming, rather than expecting the AI to produce TipTap JSON directly.
-4. **First model.** Default: Cohere North Mini Code because it was requested; for general conversation quality, Gemma may make a better primary after a short side-by-side test.
+4. **First model.** Default: Nemotron 3.5 Lightning free with optional reasoning disabled. The original Cohere free endpoint was removed from the catalog; review availability and response quality before changing this order.
 5. **Deployment hosts.** Selected: Vercel for the static SPA, free Render for the Express API and Neon for PostgreSQL. Default hosting domains use a same-origin `/api` proxy for cookie sessions. Idle API startup delays are an accepted demo limitation; keep development and production databases separate.
 
 ---

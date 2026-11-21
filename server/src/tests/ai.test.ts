@@ -50,6 +50,45 @@ afterEach(() => {
 });
 
 describe('model fallback boundaries', () => {
+  it('falls back on a pre-content interrupted stream but never after partial output', async () => {
+    for (const partial of [false, true]) {
+      const run = vi.fn<ModelRunner>(async function* ({ modelId }) {
+        if (modelId === config.OPENROUTER_MODEL_1) {
+          if (partial) yield 'Partial';
+          throw new GenerationError(
+            'INCOMPLETE',
+            'Private provider detail',
+            true,
+            'interrupted',
+          );
+        }
+        yield 'Fallback';
+      });
+      const onText = vi.fn();
+      if (partial) {
+        await expect(generateAnswer(input(run, onText))).rejects.toMatchObject({
+          code: 'INCOMPLETE',
+        });
+        expect(run).toHaveBeenCalledTimes(1);
+        expect(onText).toHaveBeenCalledOnce();
+      } else {
+        await expect(generateAnswer(input(run, onText))).resolves.toMatchObject(
+          { text: 'Fallback', modelId: config.OPENROUTER_MODEL_2 },
+        );
+        expect(run).toHaveBeenCalledTimes(2);
+      }
+    }
+  });
+  it('provides a useful rate-limit message when every candidate is throttled', async () => {
+    const run = vi.fn<ModelRunner>(async function* () {
+      throw upstream(429);
+    });
+    await expect(generateAnswer(input(run))).rejects.toMatchObject({
+      code: 'PROVIDER_RATE_LIMIT',
+      message: expect.stringContaining('wait'),
+    });
+    expect(run).toHaveBeenCalledTimes(3);
+  });
   it('allows a cold tokenizer load to exceed the provider first-token deadline', async () => {
     vi.useFakeTimers();
     vi.mocked(countModelTokens).mockImplementation(async () => {

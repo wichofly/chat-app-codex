@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readConfig } from '../config.js';
-import { modelRunner } from '../modules/ai/provider.js';
 import type { Persona } from '../modules/ai/personas.js';
+import { modelRunner } from '../modules/ai/provider.js';
 
-const { streamTextMock } = vi.hoisted(() => ({ streamTextMock: vi.fn() }));
+const { streamTextMock, chatMock } = vi.hoisted(() => ({
+  streamTextMock: vi.fn(),
+  chatMock: vi.fn(() => ({})),
+}));
 vi.mock('ai', () => ({ streamText: streamTextMock }));
 vi.mock('@openrouter/ai-sdk-provider', () => ({
-  createOpenRouter: () => ({ chat: () => ({}) }),
+  createOpenRouter: () => ({ chat: chatMock }),
 }));
 
 const config = readConfig({
@@ -15,10 +18,14 @@ const config = readConfig({
   OPENROUTER_API_KEY: 'test-only-key',
 });
 
-async function collect(reason?: string, persona?: Persona) {
+async function collect(
+  reason?: string,
+  persona?: Persona,
+  text = 'Partial answer',
+) {
   streamTextMock.mockReturnValue({
     fullStream: (async function* () {
-      yield { type: 'text-delta', text: 'Partial answer' };
+      if (text) yield { type: 'text-delta', text };
       if (reason) yield { type: 'finish', finishReason: reason };
     })(),
   });
@@ -35,6 +42,42 @@ async function collect(reason?: string, persona?: Persona) {
 }
 
 describe('provider stream completion', () => {
+  it('disables optional reasoning without increasing the output budget', async () => {
+    await collect('stop');
+    expect(chatMock).toHaveBeenLastCalledWith(config.OPENROUTER_MODEL_1, {
+      reasoning: { enabled: false, effort: 'none' },
+    });
+    expect(streamTextMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ maxOutputTokens: config.MAX_AI_OUTPUT_TOKENS }),
+    );
+  });
+  it.each(['error', 'interrupted', undefined])(
+    'allows fallback on an interrupted empty stream (%s)',
+    async (reason) => {
+      await expect(collect(reason, undefined, '')).rejects.toMatchObject({
+        code: 'INCOMPLETE',
+        retryable: true,
+        finishReason: reason ?? 'missing-finish',
+      });
+    },
+  );
+  it('distinguishes exhausted output tokens from other incomplete finishes', async () => {
+    await expect(collect('length')).rejects.toMatchObject({
+      code: 'INCOMPLETE',
+      finishReason: 'length',
+      retryable: false,
+      message: expect.stringContaining('output token limit'),
+    });
+  });
+  it.each(['content-filter', 'tool-calls'])(
+    'does not make %s finishes retryable',
+    async (reason) => {
+      await expect(collect(reason, undefined, '')).rejects.toMatchObject({
+        retryable: false,
+        finishReason: reason,
+      });
+    },
+  );
   it('forwards the summary system prompt, final user instruction and output cap to the SDK', async () => {
     streamTextMock.mockReturnValue({
       fullStream: (async function* () {

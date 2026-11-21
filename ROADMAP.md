@@ -2,6 +2,8 @@
 
 ## Current status and priorities
 
+- November 21 local provider fix: removed the retired Cohere free endpoint from defaults, promoted Nemotron 3.5 Lightning to primary, retained Gemma 26B second and added Gemma 31B third with pinned native tokenizer artifacts. Disabled optional reasoning for bounded chat/summary output, added safe finish-reason diagnostics and pre-content interrupted-stream fallback. Verified one real Nemotron reply through the tokenizer and SDK stream; Gemma rate limits remain external. The private local model settings were updated; hosted settings/deployment were not changed.
+
 - November 16 local implementation: chat cursor pagination and **Load more conversations**, bounded client test workers, and durable public sharing with fixed completed-message snapshots, token rotation/revocation, ownership checks, public rate limiting and deletion cascade. Migration `20261116000000_sharing_and_chat_pagination` is prepared; this update has not been deployed. PostgreSQL integration tests are added but require a designated test database; browser verification remains outstanding.
 - Local verification: production builds, server TypeScript, 57 client tests and 101 database-independent server tests passed. Client checks now use one worker, bounded waits for cold lazy routes and controlled preview timers for navigation/Stop/Retry. The existing large chat-bundle warning remains; no linter is configured.
 
