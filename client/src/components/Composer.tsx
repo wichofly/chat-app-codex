@@ -170,15 +170,15 @@ export function Composer({
     },
   ];
   return (
-    <div className="composer-wrap">
+    <div className="composer">
       <div
-        className={`composer ${locked ? 'composer-busy' : ''}`}
+        className={`composer__surface ${locked ? 'composer__surface--busy' : ''}`}
         aria-busy={generating}
       >
         <EditorContent editor={editor} />
         {linkOpen && !locked && (
           <form
-            className="link-editor"
+            className="composer__link-editor"
             onSubmit={(event) => {
               event.preventDefault();
               const href = safeUrl(url);
@@ -234,16 +234,16 @@ export function Composer({
             )}
           </form>
         )}
-        <div className="composer-bottom">
+        <div className="composer__bottom">
           <div
-            className="composer-toolbar"
+            className="composer__toolbar"
             role="group"
             aria-label="Text formatting"
           >
             {tools.map(({ label, Icon, active, run }) => (
               <button
                 key={label}
-                className={`icon-button ${active ? 'tool-active' : ''}`}
+                className={`icon-button ${active ? 'icon-button--active' : ''}`}
                 aria-label={label}
                 aria-pressed={active}
                 title={label}
@@ -254,9 +254,9 @@ export function Composer({
                 <Icon size={16} />
               </button>
             ))}
-            <span className="toolbar-divider" />
+            <span className="composer__divider" />
             <button
-              className={`icon-button ${state?.link ? 'tool-active' : ''}`}
+              className={`icon-button ${state?.link ? 'icon-button--active' : ''}`}
               aria-label="Add or edit link"
               aria-expanded={linkOpen}
               onClick={() => {
@@ -269,13 +269,13 @@ export function Composer({
               <Link2 size={16} />
             </button>
           </div>
-          <div className="composer-send">
-            <span className="composer-shortcut">
+          <div className="composer__send">
+            <span className="composer__shortcut">
               Shift + Enter for a new line
             </span>
             {generating && onStop ? (
               <button
-                className="button button-secondary stop-button"
+                className="button button--secondary composer__stop-button"
                 onClick={onStop}
               >
                 <Square size={12} fill="currentColor" />
@@ -283,7 +283,7 @@ export function Composer({
               </button>
             ) : (
               <button
-                className="send-button"
+                className="composer__send-button"
                 aria-label="Send message"
                 title="Send message (Enter)"
                 onClick={() => void send()}
@@ -306,7 +306,7 @@ export function Composer({
           {state.length.toLocaleString()}/6,000).
         </p>
       )}
-      <p className="composer-disclaimer">
+      <p className="composer__disclaimer">
         A little perspective, powered by AI. Always double-check what matters.
       </p>
     </div>

@@ -63,17 +63,17 @@ export function ChatLayout() {
   if (sessionLoading) return <Loading />;
   if (!user) return <Navigate to="/login" replace />;
   return (
-    <div className="app-shell">
+    <div className="chat-layout">
       {mobileOpen && (
         <button
-          className="sidebar-scrim"
+          className="chat-layout__scrim"
           aria-label="Close navigation"
           onClick={() => setMobileOpen(false)}
         />
       )}
       <div
         ref={drawerRef}
-        className="sidebar-container"
+        className="chat-layout__sidebar"
         role={mobileOpen ? 'dialog' : undefined}
         aria-modal={mobileOpen || undefined}
         aria-label={mobileOpen ? 'Navigation' : undefined}
@@ -88,13 +88,13 @@ export function ChatLayout() {
           <div className="preview-banner">
             <span>
               <strong>UI preview</strong>
-              <span className="preview-banner-detail">
+              <span className="preview-banner__detail">
                 {' '}
                 · Sample data, stored in memory. AI and accounts aren’t
                 connected.
               </span>
             </span>
-            <div className="preview-controls">
+            <div className="preview-banner__controls">
               <label htmlFor="preview-response">Response</label>
               <select
                 id="preview-response"
@@ -128,7 +128,7 @@ export function ChatLayout() {
         )}
         <button
           ref={toggleRef}
-          className="icon-button mobile-menu"
+          className="icon-button workspace__menu-toggle"
           aria-label="Open navigation"
           aria-expanded={mobileOpen}
           aria-controls="chat-sidebar"
@@ -138,7 +138,7 @@ export function ChatLayout() {
         </button>
         <main
           id="main-content"
-          className="workspace-main"
+          className="workspace__main"
           inert={mobileOpen || undefined}
         >
           <Outlet />

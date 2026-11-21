@@ -73,13 +73,13 @@ export function ChatSidebar({
     <>
       <aside
         id="chat-sidebar"
-        className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}
+        className={`sidebar ${mobileOpen ? 'sidebar--open' : ''}`}
         aria-label="Your conversations"
       >
-        <div className="sidebar-top">
+        <div className="sidebar__top">
           <Brand to="/chats" />
           <button
-            className="icon-button sidebar-close"
+            className="icon-button sidebar__close"
             aria-label="Close navigation"
             onClick={onClose}
           >
@@ -87,23 +87,23 @@ export function ChatSidebar({
           </button>
         </div>
         <button
-          className="button new-chat-button"
+          className="button sidebar__new-chat"
           onClick={create}
           disabled={creating}
         >
           <Plus size={18} />
           {creating ? 'Creating…' : 'New chat'}
-          <span className="new-chat-symbol" aria-hidden="true">
+          <span className="sidebar__new-chat-symbol" aria-hidden="true">
             ↗
           </span>
         </button>
-        <div className="sidebar-section-title">
+        <div className="sidebar__section-title">
           YOUR CONVERSATIONS<span>{chats?.length ?? '—'}</span>
         </div>
-        <nav className="chat-nav" aria-label="Chat history">
+        <nav className="sidebar__history" aria-label="Chat history">
           {loading && (
             <div
-              className="sidebar-skeleton"
+              className="sidebar__skeleton"
               role="status"
               aria-label="Loading conversations"
             >
@@ -113,7 +113,7 @@ export function ChatSidebar({
             </div>
           )}
           {error && (
-            <div className="sidebar-empty">
+            <div className="sidebar__empty">
               <p role="alert">{remote.error}</p>
               <button
                 className="text-button"
@@ -126,7 +126,7 @@ export function ChatSidebar({
             </div>
           )}
           {!loading && !error && chats?.length === 0 && (
-            <div className="sidebar-empty">
+            <div className="sidebar__empty">
               <MessageSquare size={23} />
               <p>A clean slate.</p>
               <span>Your conversations will appear here.</span>
@@ -135,21 +135,21 @@ export function ChatSidebar({
           {groups
             .filter((g) => g.chats.length)
             .map((group) => (
-              <div className="chat-group" key={group.label}>
-                <p className="chat-group-label">{group.label}</p>
+              <div className="sidebar__group" key={group.label}>
+                <p className="sidebar__group-label">{group.label}</p>
                 {group.chats.map((chat) => (
                   <div className="chat-row" key={chat.id}>
                     <NavLink
                       to={`/chats/${chat.id}`}
                       onClick={onClose}
                       className={({ isActive }) =>
-                        `chat-link ${isActive ? 'chat-link-active' : ''}`
+                        `chat-row__link ${isActive ? 'chat-row__link--active' : ''}`
                       }
                     >
                       <MessageSquare size={15} />
                       <span title={chat.title}>{chat.title}</span>
                     </NavLink>
-                    <div className="chat-row-actions">
+                    <div className="chat-row__actions">
                       <button
                         className="icon-button"
                         aria-label={`Rename ${chat.title}`}
@@ -173,7 +173,7 @@ export function ChatSidebar({
             ))}
           {!preview && remote.nextCursor && !error && (
             <button
-              className="button button-secondary"
+              className="button button--secondary"
               disabled={remote.loadingMore}
               onClick={() => void remote.loadMore()}
             >
@@ -181,11 +181,11 @@ export function ChatSidebar({
             </button>
           )}
         </nav>
-        <div className="sidebar-bottom">
+        <div className="sidebar__bottom">
           {preview && (
             <Link
               to="/shared/demo"
-              className="sidebar-preview-link"
+              className="sidebar__preview-link"
               onClick={onClose}
             >
               <BookOpen size={15} />
@@ -193,7 +193,7 @@ export function ChatSidebar({
               <ArrowUpRight size={14} />
             </Link>
           )}
-          <div className="sidebar-privacy">
+          <div className="sidebar__privacy">
             <span className="small-dot" />A private space for your thoughts.
           </div>
           <div className="user-menu">

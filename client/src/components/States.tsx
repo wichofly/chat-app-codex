@@ -38,13 +38,13 @@ export function ErrorState({
 }) {
   return (
     <div className="page-state">
-      <span className="state-icon">
+      <span className="page-state__icon">
         <AlertCircle size={26} />
       </span>
       <h2>Let’s try that again</h2>
       <p role="alert">{message}</p>
       {retry && (
-        <button className="button button-secondary" onClick={retry}>
+        <button className="button button--secondary" onClick={retry}>
           <RefreshCw size={16} />
           {retryLabel}
         </button>
@@ -64,8 +64,8 @@ export function NotFound({
     shared ? 'Shared conversation unavailable' : 'Page not found',
   );
   return (
-    <div className={`page-state ${nested ? '' : 'full-page-state'}`}>
-      <span className="state-icon">
+    <div className={`page-state ${nested ? '' : 'page-state--full-page'}`}>
+      <span className="page-state__icon">
         <SearchX size={28} />
       </span>
       <span className="eyebrow">404 · A loose thread</span>
@@ -79,7 +79,7 @@ export function NotFound({
           ? 'This link may have been disabled, replaced, or never existed.'
           : 'The page you’re looking for may have moved, or the link might be incomplete.'}
       </p>
-      <Link className="button button-primary" to="/chats">
+      <Link className="button button--primary" to="/chats">
         <ArrowLeft size={16} />
         Back to your space
       </Link>

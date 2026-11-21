@@ -10,6 +10,7 @@ export function useResource<T>(
     error: Error | null;
     dependencies: readonly unknown[];
   }>({ data: null, loading: true, error: null, dependencies });
+
   useEffect(() => {
     let active = true;
     setState({ data: null, loading: true, error: null, dependencies });
@@ -36,10 +37,12 @@ export function useResource<T>(
     };
     // Callers explicitly provide the resources that invalidate this request.
   }, dependencies);
+
   const current =
     dependencies.length === state.dependencies.length &&
     dependencies.every((value, index) =>
       Object.is(value, state.dependencies[index]),
     );
+
   return current ? state : { data: null, loading: true, error: null };
 }

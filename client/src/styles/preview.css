@@ -16,18 +16,18 @@
     min-width: 0;
   }
 
-  .preview-controls {
+  .preview-banner__controls {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
   }
 
-  .preview-controls label {
+  .preview-banner__controls label {
     font-size: 10px;
   }
 
-  .preview-controls select {
+  .preview-banner__controls select {
     color: #5a664c;
     background: #fffef8;
     border: 1px solid #d9dfce;
@@ -43,43 +43,43 @@
     display: flex;
   }
 
-  .composer-bottom {
+  .composer__bottom {
     flex-wrap: wrap;
   }
 
-  .composer-send {
+  .composer__send {
     margin-left: auto;
   }
 
-  .stop-button {
+  .composer__stop-button {
     min-height: 33px;
     padding: 7px 10px;
     font-size: 11px;
   }
 
-  .retry-button {
+  .message__retry-button {
     min-height: 30px;
     margin-top: 10px;
     padding: 6px 10px;
     font-size: 11px;
   }
 
-  .message-failure .message-failed {
+  .message__failure .message__error {
     align-items: flex-start;
   }
 
-  .composer[aria-busy='true'] .composer-shortcut {
+  .composer__surface[aria-busy='true'] .composer__shortcut {
     visibility: hidden;
   }
 
   @media (max-width: 1100px) {
-    .preview-banner-detail {
+    .preview-banner__detail {
       display: none;
     }
   }
 
   @media (max-width: 680px) {
-    .preview-banner+.mobile-menu {
+    .preview-banner+.workspace__menu-toggle {
       top: calc(var(--preview-banner-height) + 22px);
     }
 
@@ -87,11 +87,11 @@
       padding-inline: 15px;
     }
 
-    .preview-controls label {
+    .preview-banner__controls label {
       display: none;
     }
 
-    .stop-button {
+    .composer__stop-button {
       font-size: 10px;
     }
   }

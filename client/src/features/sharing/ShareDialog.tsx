@@ -43,18 +43,23 @@ export function ShareDialog({
     }
   }
   return (
-    <Dialog title="Share a little perspective" onClose={onClose} busy={busy}>
-      <div className="share-illustration">
+    <Dialog
+      title="Share a little perspective"
+      onClose={onClose}
+      busy={busy}
+      className="share-dialog"
+    >
+      <div className="share-dialog__illustration">
         <Globe2 size={29} />
         <span>
           <Link2 size={14} />
         </span>
       </div>
-      <p className="dialog-copy">
+      <p className="dialog__copy">
         Create a read-only snapshot of this conversation.{' '}
         <strong>Anyone with the link can read all completed messages.</strong>
       </p>
-      <div className="share-details">
+      <div className="share-dialog__details">
         <ShieldCheck size={19} />
         <p>
           Future messages stay private. Refreshing the snapshot creates a new
@@ -62,7 +67,7 @@ export function ShareDialog({
         </p>
       </div>
       {preview && (
-        <p className="notice preview-share-note">
+        <p className="notice share-dialog__preview-note">
           Preview links work only in this tab until you refresh. They aren’t
           published.
         </p>
@@ -88,7 +93,7 @@ export function ShareDialog({
           <label className="field-label" htmlFor="share-url">
             Current snapshot link
           </label>
-          <div className="share-url">
+          <div className="share-dialog__url">
             <input
               id="share-url"
               readOnly
@@ -111,14 +116,14 @@ export function ShareDialog({
             </button>
           </div>
           <a
-            className="text-link share-open"
+            className="text-link share-dialog__open"
             href={sharedUrl}
             target={preview ? undefined : '_blank'}
             rel="noopener noreferrer"
           >
             Open shared view ↗
           </a>
-          <p className="dialog-note">
+          <p className="dialog__note">
             Refreshing replaces this snapshot and revokes its current URL.
           </p>
         </>
@@ -128,10 +133,10 @@ export function ShareDialog({
           {actionError}
         </p>
       )}
-      <div className="dialog-actions share-actions">
+      <div className="dialog__actions share-dialog__actions">
         {sharedUrl ? (
           <button
-            className="text-button text-danger"
+            className="text-button text-button--danger"
             onClick={() => void mutate(true)}
             disabled={busy}
           >
@@ -139,7 +144,7 @@ export function ShareDialog({
           </button>
         ) : (
           <button
-            className="button button-secondary"
+            className="button button--secondary"
             onClick={onClose}
             disabled={busy}
           >
@@ -147,7 +152,7 @@ export function ShareDialog({
           </button>
         )}
         <button
-          className="button button-primary"
+          className="button button--primary"
           onClick={() => void mutate()}
           disabled={busy || loading || !!error}
         >

@@ -134,7 +134,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       {children}
       {toast && (
         <div
-          className={`toast ${toast.error ? 'toast-error' : ''}`}
+          className={`toast ${toast.error ? 'toast--error' : ''}`}
           role={toast.error ? 'alert' : 'status'}
         >
           {toast.error ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}

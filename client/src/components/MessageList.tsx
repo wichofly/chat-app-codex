@@ -39,32 +39,32 @@ export function MessageList({
         return (
           <article
             key={message.id ?? index}
-            className={`message message-${message.role.toLowerCase()}`}
+            className={`message ${isAssistant ? 'message--assistant' : 'message--user'}`}
             aria-label={isAssistant ? 'Thread assistant' : 'You'}
           >
-            <div className="message-heading">
+            <div className="message__heading">
               {isAssistant ? (
                 <ThreadMark small />
               ) : (
-                <span className="message-user-icon">
+                <span className="message__user-icon">
                   <UserRound size={15} />
                 </span>
               )}
               <strong>{isAssistant ? 'Thread' : 'You'}</strong>
               {message.modelId && (
-                <span className="model-label">{message.modelId}</span>
+                <span className="message__model">{message.modelId}</span>
               )}
               {preview && isAssistant && (
-                <span className="model-label">
+                <span className="message__model">
                   UI preview · Sample response
                 </span>
               )}
             </div>
-            <div className="message-body">
+            <div className="message__body">
               <RichText document={message.contentJson} />
               {message.status === 'PENDING' && (
-                <div className="generation-status" role="status">
-                  <span className="typing-dots">
+                <div className="message__status" role="status">
+                  <span className="message__typing-dots">
                     <i />
                     <i />
                     <i />
@@ -73,8 +73,8 @@ export function MessageList({
                 </div>
               )}
               {message.status === 'FAILED' && (
-                <div className="message-failure">
-                  <p className="message-failed" role="alert">
+                <div className="message__failure">
+                  <p className="message__error" role="alert">
                     <AlertCircle size={16} />
                     {isStopped
                       ? 'Generation stopped.'
@@ -82,7 +82,7 @@ export function MessageList({
                   </p>
                   {onRetry && canRetry && (
                     <button
-                      className="button button-secondary retry-button"
+                      className="button button--secondary message__retry-button"
                       onClick={() => onRetry(message.id)}
                     >
                       Retry response

@@ -20,6 +20,7 @@ export function SharedPage() {
     () => service.getSnapshot(token),
     [service, token, revision],
   );
+  
   useEffect(() => {
     const meta = document.createElement('meta');
     meta.name = 'robots';
@@ -29,21 +30,23 @@ export function SharedPage() {
       meta.remove();
     };
   }, []);
+  
   useDocumentTitle(
     error
       ? 'Shared conversation unavailable'
       : data?.title || 'Shared conversation',
   );
+  
   return (
     <div className="shared-page">
-      <header className="shared-header">
+      <header className="shared-page__header">
         <Brand to="/chats" />
-        <Link to="/chats" className="button button-secondary">
+        <Link to="/chats" className="button button--secondary">
           Your own space
           <ArrowUpRight size={15} />
         </Link>
       </header>
-      <main id="main-content" className="shared-main">
+      <main id="main-content" className="shared-page__main">
         {loading ? (
           <ConversationSkeleton />
         ) : error ? (
@@ -55,17 +58,17 @@ export function SharedPage() {
         ) : (
           data && (
             <>
-              <div className="shared-title">
+              <div className="shared-page__title">
                 <span className="eyebrow">
                   <Share2 size={13} />A SHARED PERSPECTIVE
                 </span>
                 <h1>{data.title}</h1>
-                <div className="shared-meta">
+                <div className="shared-page__meta">
                   <span>
                     <LockKeyhole size={13} />
                     Read-only snapshot
                   </span>
-                  <span className="meta-dot">·</span>
+                  <span className="shared-page__meta-dot">·</span>
                   <time dateTime={data.sharedAt}>
                     {new Intl.DateTimeFormat('en', {
                       dateStyle: 'medium',
@@ -85,7 +88,7 @@ export function SharedPage() {
                   <p>This snapshot has no completed messages yet.</p>
                 </div>
               )}
-              <footer className="shared-footer">
+              <footer className="shared-page__footer">
                 <span>A thought worth sharing.</span>
                 <Link to="/chats">
                   Start your own conversation

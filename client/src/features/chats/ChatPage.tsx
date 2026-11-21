@@ -187,14 +187,14 @@ export function ChatPage() {
   if (error) return <ErrorState message={error.message} retry={refresh} />;
   const hasMessages = displayedMessages.length > 0;
   return (
-    <div className="chat-page">
-      <header className="chat-header">
-        <div className="chat-heading">
+    <div className="chat">
+      <header className="chat__header">
+        <div className="chat__heading">
           {chat ? (
             <>
               <h1>{chat.title}</h1>
               <button
-                className="icon-button title-rename"
+                className="icon-button chat__rename"
                 aria-label="Rename conversation"
                 disabled={loading}
                 onClick={() => setRename(true)}
@@ -203,19 +203,19 @@ export function ChatPage() {
               </button>
             </>
           ) : (
-            <span className="header-label">
+            <span className="chat__label">
               {loading ? 'Loading conversation…' : 'Your space to think'}
             </span>
           )}
         </div>
-        <div className="chat-header-actions">
-          <span className="private-label">
+        <div className="chat__actions">
+          <span className="chat__privacy">
             <LockKeyhole size={13} />
             Private
           </span>
           {chat && (
             <button
-              className="button button-secondary share-button"
+              className="button button--secondary chat__share"
               disabled={loading}
               onClick={() => setSharing(true)}
             >
@@ -226,13 +226,13 @@ export function ChatPage() {
         </div>
       </header>
       <div
-        className={`chat-content ${hasMessages ? 'chat-content-conversation' : ''}`}
+        className={`chat__content ${hasMessages ? 'chat__content--conversation' : ''}`}
       >
         {loading && chatId ? (
           <ConversationSkeleton />
         ) : hasMessages ? (
           <>
-            <div className="conversation-intro">
+            <div className="chat__intro">
               <span className="eyebrow">
                 <MessageSquare size={12} />A THOUGHT IN PROGRESS
               </span>
@@ -246,35 +246,37 @@ export function ChatPage() {
           </>
         ) : (
           <section className="welcome">
-            <div className="welcome-mark">
+            <div className="welcome__mark">
               <ThreadMark />
-              <span className="welcome-spark" aria-hidden="true">
+              <span className="welcome__spark" aria-hidden="true">
                 ✳
               </span>
             </div>
             <span className="eyebrow">A CLEAR SPACE. A FRESH PERSPECTIVE.</span>
             <h1>
               Where shall we
-              <br className="mobile-break" /> go from here?
+              <br className="welcome__break welcome__break--mobile" /> go from
+              here?
             </h1>
             <p>
               Bring a question, an idea, or a thought that isn’t quite there
               yet.
-              <br className="desktop-break" /> We’ll work through it together.
+              <br className="welcome__break welcome__break--desktop" /> We’ll
+              work through it together.
             </p>
-            <div className="suggestion-grid">
+            <div className="welcome__suggestions">
               {suggestions.map(({ Icon, label, description, prompt: text }) => (
                 <button
-                  className="suggestion-card"
+                  className="suggestion"
                   key={label}
                   disabled={loading || generating}
                   onClick={() => setPrompt({ text, key: Date.now() })}
                 >
                   <div>
-                    <span className="suggestion-icon">
+                    <span className="suggestion__icon">
                       <Icon size={19} strokeWidth={1.6} />
                     </span>
-                    <ArrowUpRight size={16} className="suggestion-arrow" />
+                    <ArrowUpRight size={16} className="suggestion__arrow" />
                   </div>
                   <strong>{label}</strong>
                   <span>{description}</span>
@@ -284,7 +286,7 @@ export function ChatPage() {
           </section>
         )}
       </div>
-      <div className="composer-dock">
+      <div className="chat__composer-dock">
         {!previewService && (
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#69745f]">
             <label htmlFor="answer-style">Answer style</label>
@@ -311,7 +313,7 @@ export function ChatPage() {
           </div>
         )}
         {!previewService && live.error && (
-          <div className="send-error" role="alert">
+          <div className="chat__send-error" role="alert">
             <p>{live.error}</p>
           </div>
         )}

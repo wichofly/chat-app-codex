@@ -6,11 +6,13 @@ export function Dialog({
   children,
   onClose,
   busy = false,
+  className = '',
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   busy?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -26,7 +28,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      className="dialog"
+      className={`dialog ${className}`.trim()}
       aria-labelledby="dialog-title"
       onCancel={(event) => {
         event.preventDefault();
@@ -36,7 +38,7 @@ export function Dialog({
         if (!busy && event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="dialog-header">
+      <div className="dialog__header">
         <h2 id="dialog-title">{title}</h2>
         <button
           className="icon-button"

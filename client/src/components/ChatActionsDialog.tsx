@@ -40,6 +40,7 @@ export function ChatActionsDialog({
   }
   return (
     <Dialog
+      className="chat-actions-dialog"
       title={deleting ? 'Delete this conversation?' : 'Rename conversation'}
       onClose={onClose}
       busy={busy}
@@ -47,14 +48,14 @@ export function ChatActionsDialog({
       <form onSubmit={submit}>
         {deleting ? (
           <>
-            <div className="delete-icon">
+            <div className="chat-actions-dialog__delete-icon">
               <Trash2 size={23} />
             </div>
-            <p className="dialog-copy">
+            <p className="dialog__copy">
               “{chat.title}” and all its messages will be permanently deleted.
               Any public link will stop working.
             </p>
-            <p className="dialog-note">This can’t be undone.</p>
+            <p className="dialog__note">This can’t be undone.</p>
           </>
         ) : (
           <div className="field">
@@ -68,7 +69,7 @@ export function ChatActionsDialog({
               autoFocus
               disabled={busy}
             />
-            <span className="field-hint">
+            <span className="field__hint">
               {title.trim().length}/100 characters
             </span>
           </div>
@@ -78,17 +79,17 @@ export function ChatActionsDialog({
             {error}
           </p>
         )}
-        <div className="dialog-actions">
+        <div className="dialog__actions">
           <button
             type="button"
-            className="button button-secondary"
+            className="button button--secondary"
             onClick={onClose}
             disabled={busy}
           >
             Cancel
           </button>
           <button
-            className={`button ${deleting ? 'button-danger' : 'button-primary'}`}
+            className={`button ${deleting ? 'button--danger' : 'button--primary'}`}
             disabled={busy || (!deleting && !title.trim())}
           >
             {busy ? 'Working…' : deleting ? 'Delete conversation' : 'Save name'}

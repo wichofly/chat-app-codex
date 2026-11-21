@@ -140,6 +140,8 @@ Integration references consulted via Context7: [Better Auth Express integration]
 
 ## Structure
 
+Frontend custom classes use BEM: `block`, `block__element`, and `block--modifier` (or `block__element--modifier`). For example, `chat__header`, `message__body`, and `button button--primary`. Independent shared controls remain separate blocks; dialogs may mix `dialog` with `share-dialog` or `chat-actions-dialog`. Keep class names synchronized across JSX and both stylesheets, including responsive rules. Tailwind utilities and TipTap-generated classes keep their own naming conventions.
+
 ```text
 client/src/
   app/              Routes and session/preview/notification provider

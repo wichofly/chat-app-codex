@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 export function ThreadMark({ small = false }: { small?: boolean }) {
   return (
     <span
-      className={`thread-mark ${small ? 'thread-mark-small' : ''}`}
+      className={`thread-mark ${small ? 'thread-mark--small' : ''}`}
       aria-hidden="true"
     >
       <svg viewBox="0 0 32 32" fill="none">
@@ -23,7 +23,7 @@ export function Brand({ to = '/' }: { to?: string }) {
     <Link className="brand" to={to} aria-label="Thread home">
       <ThreadMark small />
       <span>
-        thread<span className="brand-dot">.</span>
+        thread<span className="brand__dot">.</span>
       </span>
     </Link>
   );

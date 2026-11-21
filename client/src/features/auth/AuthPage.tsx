@@ -37,15 +37,15 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
     }
   }
   return (
-    <div className="auth-form-wrap" key={signup ? 'signup' : 'login'}>
+    <div className="auth__form-container" key={signup ? 'signup' : 'login'}>
       <span className="eyebrow">YOUR SPACE TO THINK</span>
       <h1>{signup ? 'A fresh start.' : 'Welcome back.'}</h1>
-      <p className="auth-subtitle">
+      <p className="auth__subtitle">
         {signup
           ? 'Make room for your next idea.'
           : 'Pick up a thought. Start something new.'}
       </p>
-      <form onSubmit={submit} className="auth-form">
+      <form onSubmit={submit} className="auth__form">
         {app.sessionError && (
           <div className="notice" role="status">
             <Info size={16} />
@@ -92,7 +92,7 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
         </div>
         <div className="field">
           <label htmlFor="password">Password</label>
-          <div className="password-input">
+          <div className="field__password">
             <input
               id="password"
               name="password"
@@ -115,7 +115,7 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
             </button>
           </div>
           {signup && (
-            <span className="field-hint">Use at least 8 characters.</span>
+            <span className="field__hint">Use at least 8 characters.</span>
           )}
         </div>
         <div className="notice" id="password-note">
@@ -132,7 +132,7 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
         )}
         <button
           type="submit"
-          className="button button-primary auth-submit"
+          className="button button--primary auth__submit"
           disabled={busy}
         >
           {busy ? (
@@ -148,17 +148,17 @@ export function AuthPage({ signup = false }: { signup?: boolean }) {
           )}
         </button>
       </form>
-      <p className="auth-switch">
+      <p className="auth__switch">
         {signup ? 'Already have an account?' : 'New around here?'}{' '}
         <Link to={signup ? '/login' : '/signup'}>
           {signup ? 'Sign in' : 'Create an account'}
           <span aria-hidden="true"> ↗</span>
         </Link>
       </p>
-      <div className="preview-entry">
-        <span className="divider-label">JUST LOOKING AROUND?</span>
+      <div className="auth__preview">
+        <span className="auth__divider">JUST LOOKING AROUND?</span>
         <button
-          className="button button-secondary w-full"
+          className="button button--secondary w-full"
           onClick={() => {
             app.startPreview();
             navigate('/chats');
